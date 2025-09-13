@@ -27,11 +27,10 @@ export default function Explore() {
   const router = useRouter();
 
   const fetchExploreData = async () => {
-    try {
-      const postRef = collection(db, 'posts');
+    try {  
+       const postRef = collection(db, 'posts');
       const reelsRef = collection(db, 'reels');
       const usersRef = collection(db, 'users');
-
       const [postsSnap, reelsSnap, usersSnap] = await Promise.all([
         getDocs(query(postRef, orderBy('createdAt', 'desc'))),
         getDocs(query(reelsRef, orderBy('createdAt', 'desc'))),
@@ -109,6 +108,14 @@ export default function Explore() {
       <Text style={styles.username}>{item.username}</Text>
     </TouchableOpacity>
   );
+          
+
+
+
+
+
+
+
 
   const renderContent = () => {
     const isSearching = searchQuery.trim().length > 0;

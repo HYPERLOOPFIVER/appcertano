@@ -9,6 +9,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
+// Instagram-like feed algorithm constants
+const FEED_ALGORITHM_WEIGHTS = {
+  RECENCY: 0.35,        // How recent the post is
+  ENGAGEMENT: 0.30,     // Likes, comments, shares
+  RELATIONSHIP: 0.25,   // How close the user is to the author
+  CONTENT_TYPE: 0.10    // Type of content (image, video, text)
+};
+
+const RELATIONSHIP_SCORES = {
+  FOLLOWING: 1.0,
+  MUTUAL_FOLLOWERS: 0.8,
+  FOLLOWED_BY: 0.6,
+  SUGGESTED: 0.3,
+  STRANGER: 0.1
+};
+
 const BottomNavigation = ({ onTabPress }) => {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -20,7 +36,6 @@ const BottomNavigation = ({ onTabPress }) => {
     { label: 'Profile', icon: 'person' },
   ];
 
-  // Add safe area padding to the bottom navigation
   const insets = useSafeAreaInsets();
 
   return (
@@ -53,6 +68,7 @@ const BottomNavigation = ({ onTabPress }) => {
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const [rankedPosts, setRankedPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [likeModalVisible, setLikeModalVisible] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
@@ -69,7 +85,79 @@ export default function Home() {
   const [replyText, setReplyText] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [followingList, setFollowingList] = useState([]);
+  const [followersList, setFollowersList] = useState([]);
   const router = useRouter();
+
+  // Fetch user relationships
+  const fetchUserRelationships = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    try {
+      // Fetch following
+      const followingRef = collection(db, 'users', userId, 'following');
+      const followingSnapshot = await getDocs(followingRef);
+      const following = followingSnapshot.docs.map(doc => doc.id);
+      setFollowingList(following);
+
+      // Fetch followers
+      const followersRef = collection(db, 'users', userId, 'followers');
+      const followersSnapshot = await getDocs(followersRef);
+      const followers = followersSnapshot.docs.map(doc => doc.id);
+      setFollowersList(followers);
+    } catch (error) {
+      console.error('Error fetching relationships:', error);
+    }
+  };
+
+  // Instagram-like feed ranking algorithm
+  const rankPosts = (posts, currentUserId) => {
+    if (!currentUserId) return posts;
+
+    return posts.map(post => {
+      let score = 0;
+
+      // 1. Recency score (newer posts get higher score)
+      const postTime = post.createdAt?.toDate?.() || new Date(post.createdAt);
+      const now = new Date();
+      const hoursDiff = Math.max(0, (now - postTime) / (1000 * 60 * 60));
+      const recencyScore = Math.max(0, 1 - (hoursDiff / 72)); // Decay over 72 hours
+      score += recencyScore * FEED_ALGORITHM_WEIGHTS.RECENCY;
+
+      // 2. Engagement score (likes, comments, shares)
+      const likes = Array.isArray(post.likes) ? post.likes.length : 0;
+      const comments = Array.isArray(post.commentCount) ? post.commentCount.length : 0;
+      const engagementScore = Math.min(1, (likes * 0.6 + comments * 0.4) / 50); // Normalize to 0-1
+      score += engagementScore * FEED_ALGORITHM_WEIGHTS.ENGAGEMENT;
+
+      // 3. Relationship score
+      let relationshipScore = RELATIONSHIP_SCORES.STRANGER;
+      if (post.uid === currentUserId) {
+        relationshipScore = 1.0; // User's own posts
+      } else if (followingList.includes(post.uid) && followersList.includes(post.uid)) {
+        relationshipScore = RELATIONSHIP_SCORES.MUTUAL_FOLLOWERS;
+      } else if (followingList.includes(post.uid)) {
+        relationshipScore = RELATIONSHIP_SCORES.FOLLOWING;
+      } else if (followersList.includes(post.uid)) {
+        relationshipScore = RELATIONSHIP_SCORES.FOLLOWED_BY;
+      }
+      score += relationshipScore * FEED_ALGORITHM_WEIGHTS.RELATIONSHIP;
+
+      // 4. Content type score (prioritize visual content)
+      const contentTypeScore = post.image ? 1.0 : 0.3;
+      score += contentTypeScore * FEED_ALGORITHM_WEIGHTS.CONTENT_TYPE;
+
+      return {
+        ...post,
+        _rankingScore: score,
+        _relationshipType: relationshipScore === 1.0 ? 'own' : 
+                          relationshipScore === RELATIONSHIP_SCORES.MUTUAL_FOLLOWERS ? 'mutual' :
+                          relationshipScore === RELATIONSHIP_SCORES.FOLLOWING ? 'following' :
+                          relationshipScore === RELATIONSHIP_SCORES.FOLLOWED_BY ? 'follower' : 'suggested'
+      };
+    }).sort((a, b) => b._rankingScore - a._rankingScore); // Sort by score descending
+  };
 
   const fetchUserData = async (userId) => {
     if (userNames[userId]) return userNames[userId];
@@ -105,11 +193,16 @@ export default function Home() {
       const snapshot = await getDocs(q);
       const allPosts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       
-      // Fetch author names for all posts using the uid field
+      // Fetch author names for all posts
       const authorIds = [...new Set(allPosts.map(post => post.uid).filter(Boolean))];
       await Promise.all(authorIds.map(fetchUserData));
       
       setPosts(allPosts);
+      
+      // Rank posts using the algorithm
+      const currentUserId = auth.currentUser?.uid;
+      const ranked = rankPosts(allPosts, currentUserId);
+      setRankedPosts(ranked);
     } catch (err) {
       console.error('Error loading posts:', err);
     } finally {
@@ -139,11 +232,22 @@ export default function Home() {
   };
 
   useEffect(() => {
+    fetchUserRelationships();
     fetchPosts();
   }, []);
 
+  useEffect(() => {
+    // Re-rank posts when relationships change
+    if (posts.length > 0) {
+      const currentUserId = auth.currentUser?.uid;
+      const ranked = rankPosts(posts, currentUserId);
+      setRankedPosts(ranked);
+    }
+  }, [followingList, followersList, posts]);
+
   const onRefresh = () => {
     setRefreshing(true);
+    fetchUserRelationships();
     fetchPosts();
   };
 
@@ -163,7 +267,7 @@ export default function Home() {
         likes: isLiked ? arrayRemove(userId) : arrayUnion(userId),
       });
 
-      // Update the local state immediately for better UX
+      // Update local state and re-rank
       setPosts(prevPosts =>
         prevPosts.map(post => {
           if (post.id === postId) {
@@ -224,7 +328,6 @@ export default function Home() {
     setSubmittingComment(true);
 
     try {
-      // Add comment to comments subcollection
       await addDoc(collection(db, 'posts', currentPostId, 'comments'), {
         text: commentText.trim(),
         userId: userId,
@@ -232,16 +335,15 @@ export default function Home() {
         replies: [],
       });
 
-      // Update the post's comment count
+      // Update comment count and re-rank
       const postRef = doc(db, 'posts', currentPostId);
       await updateDoc(postRef, {
         commentCount: arrayUnion(userId),
       });
 
       setCommentText('');
-      Alert.alert('Success', 'Comment added successfully!');
       
-      // Refresh comments and posts
+      // Refresh and re-rank
       await fetchComments(currentPostId);
       await fetchPosts();
     } catch (error) {
@@ -279,9 +381,7 @@ export default function Home() {
 
       setReplyText('');
       setReplyingTo(null);
-      Alert.alert('Success', 'Reply added successfully!');
       
-      // Refresh comments
       await fetchComments(currentPostId);
     } catch (error) {
       console.error('Error adding reply:', error);
@@ -347,7 +447,6 @@ export default function Home() {
           )}
         </View>
 
-        {/* Replies */}
         {replies.map((reply) => (
           <View key={reply.id} style={styles.replyContainer}>
             <UserAvatar userId={reply.userId} size={24} />
@@ -361,7 +460,6 @@ export default function Home() {
           </View>
         ))}
 
-        {/* Reply Input */}
         {replyingTo === item.id && (
           <View style={styles.replyInputContainer}>
             <UserAvatar userId={auth.currentUser?.uid || ''} size={24} />
@@ -404,17 +502,24 @@ export default function Home() {
     const likesCount = likesArray.length;
     const commentCount = commentArray.length;
     const isLiked = likesArray.includes(auth.currentUser?.uid);
-    const authorName = userNames[item.uid] || 'Unknown User'; // Changed from item.userId to item.uid
+    const authorName = userNames[item.uid] || 'Unknown User';
 
     return (
       <View style={styles.postContainer}>
-        {/* Post Header */}
         <View style={styles.postHeader}>
           <View style={styles.authorInfo}>
-            <UserAvatar userId={item.uid} /> {/* Changed from item.userId to item.uid */}
+            <UserAvatar userId={item.uid} />
             <View style={styles.authorDetails}>
               <Text style={styles.authorName}>{authorName}</Text>
               <Text style={styles.postTime}>{formatTime(item.createdAt)}</Text>
+              {item._relationshipType && (
+                <Text style={styles.relationshipBadge}>
+                  {item._relationshipType === 'own' ? 'Your post' :
+                   item._relationshipType === 'mutual' ? 'Mutual friends' :
+                   item._relationshipType === 'following' ? 'Following' :
+                   item._relationshipType === 'follower' ? 'Follows you' : 'Suggested for you'}
+                </Text>
+              )}
             </View>
           </View>
           <TouchableOpacity style={styles.moreButton}>
@@ -422,7 +527,6 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/* Post Content */}
         <View style={styles.postContent}>
           <Text style={styles.postTitle}>{item.title}</Text>
           <Text style={styles.postDescription}>{item.description}</Text>
@@ -432,7 +536,6 @@ export default function Home() {
           )}
         </View>
 
-        {/* Engagement Stats */}
         {(likesCount > 0 || commentCount > 0) && (
           <View style={styles.engagementStats}>
             <TouchableOpacity onPress={() => showLikes(likesArray)}>
@@ -448,7 +551,6 @@ export default function Home() {
           </View>
         )}
 
-        {/* Action Buttons */}
         <View style={styles.actionBar}>
           <TouchableOpacity 
             style={[styles.actionButton, isLiked && styles.likedButton]}
@@ -491,7 +593,6 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Feed</Text>
         <View style={styles.headerRight}>
@@ -504,15 +605,14 @@ export default function Home() {
         </View>
       </View>
 
-      {/* Feed */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#006D77" />
-          <Text style={styles.loadingText}>Loading your feed...</Text>
+          <Text style={styles.loadingText}>Loading your personalized feed...</Text>
         </View>
       ) : (
         <FlatList
-          data={posts}
+          data={rankedPosts}
           keyExtractor={(item) => item.id}
           renderItem={renderPost}
           showsVerticalScrollIndicator={false}
@@ -529,7 +629,6 @@ export default function Home() {
         />
       )}
 
-      {/* Likes Modal */}
       <Modal visible={likeModalVisible} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContainer}>
@@ -577,7 +676,6 @@ export default function Home() {
         </View>
       </Modal>
 
-      {/* Comment Modal */}
       <Modal visible={commentModalVisible} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContainer}>
@@ -596,7 +694,6 @@ export default function Home() {
             </View>
 
             <View style={styles.modalContent}>
-              {/* Add Comment Section */}
               <View style={styles.commentSection}>
                 <UserAvatar userId={auth.currentUser?.uid || ''} size={32} />
                 <View style={styles.commentInputWrapper}>
@@ -630,7 +727,6 @@ export default function Home() {
                 </TouchableOpacity>
               </View>
 
-              {/* Comments List */}
               <View style={styles.commentsListContainer}>
                 {loadingComments ? (
                   <View style={styles.modalLoading}>
@@ -658,12 +754,9 @@ export default function Home() {
         </View>
       </Modal>
 
-      {/* Bottom Navigation */}
       <BottomNavigation onTabPress={(idx) => {
-        // Handle tab navigation here
         switch(idx) {
           case 0:
-            // Home - already here
             break;
           case 1:
             router.push('/search');
@@ -682,6 +775,8 @@ export default function Home() {
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {

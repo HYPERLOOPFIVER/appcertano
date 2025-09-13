@@ -5,7 +5,7 @@ import { getFirestore } from 'firebase/firestore';
 
 // 🔥 Replace below with your Firebase project's config
 const firebaseConfig = {
- apiKey: "AIzaSyAsjPu0kt8ilUMK9QDu9TobEzTMMkbhiQg",
+apiKey: "AIzaSyAsjPu0kt8ilUMK9QDu9TobEzTMMkbhiQg",
   authDomain: "certano-97049.firebaseapp.com",
   projectId: "certano-97049",
   storageBucket: "certano-97049.firebasestorage.app",
