@@ -24,7 +24,7 @@
     "firebase": "^11.10.0",
     "lucide-react-native": "^0.542.0",
     "moti": "^0.30.0",
-    "react": "19.0.0",
+    "react": "19.1.1",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
     "react-native-maps": "1.20.1",
