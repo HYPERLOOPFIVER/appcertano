@@ -26,7 +26,7 @@
     "moti": "^0.30.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.81.1",
     "react-native-maps": "1.20.1",
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0"
