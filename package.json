@@ -12,7 +12,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@google/generative-ai": "^0.24.1",
-    "axios": "^1.10.0",
+    "axios": "^1.13.5",
     "expo": "~53.0.16",
     "expo-av": "~15.1.7",
     "expo-image-picker": "~16.1.4",
@@ -26,7 +26,7 @@
     "moti": "^0.30.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.84.0",
     "react-native-maps": "1.20.1",
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0"
