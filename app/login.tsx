@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
   ScrollView,
   Alert,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MotiView, MotiText } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -42,6 +42,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
+  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -72,18 +82,9 @@ export default function Login() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Decorative Background Elements */}
-      <MotiView
-        from={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'timing', duration: 800 }}
-        style={styles.decorTop}
-      >
-        <LinearGradient
-          colors={['#FF4D4D', '#F50057']}
-          style={styles.decorGradient}
-        />
-      </MotiView>
+      <View style={styles.decorTop}>
+        <LinearGradient colors={['#FF4D4D', '#F50057']} style={styles.decorGradient} />
+      </View>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -95,37 +96,20 @@ export default function Login() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <MotiView
-            from={{ opacity: 0, translateY: -30 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 600, delay: 200 }}
-            style={styles.header}
-          >
+          <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={styles.logoSmall}>
               <Ionicons name="planet" size={32} color={COLORS.primary} />
             </View>
             <Text style={styles.welcomeText}>Welcome back</Text>
             <Text style={styles.subtitleText}>Sign in to continue to Certano</Text>
-          </MotiView>
+          </Animated.View>
 
           {/* Form Container */}
-          <MotiView
-            from={{ opacity: 0, translateY: 30 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 600, delay: 400 }}
-            style={styles.formContainer}
-          >
+          <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
             {/* Email Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Email</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'email' ? COLORS.primary : COLORS.border,
-                  scale: focusedInput === 'email' ? 1.01 : 1,
-                }}
-                transition={{ type: 'timing', duration: 200 }}
-                style={styles.inputContainer}
-              >
+              <View style={[styles.inputContainer, focusedInput === 'email' && styles.inputFocused]}>
                 <Ionicons 
                   name="mail-outline" 
                   size={22} 
@@ -141,22 +125,14 @@ export default function Login() {
                   onBlur={() => setFocusedInput(null)}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  testID="login-email-input"
                 />
-              </MotiView>
+              </View>
             </View>
 
             {/* Password Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Password</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'password' ? COLORS.primary : COLORS.border,
-                  scale: focusedInput === 'password' ? 1.01 : 1,
-                }}
-                transition={{ type: 'timing', duration: 200 }}
-                style={styles.inputContainer}
-              >
+              <View style={[styles.inputContainer, focusedInput === 'password' && styles.inputFocused]}>
                 <Ionicons 
                   name="lock-closed-outline" 
                   size={22} 
@@ -171,61 +147,40 @@ export default function Login() {
                   onFocus={() => setFocusedInput('password')}
                   onBlur={() => setFocusedInput(null)}
                   secureTextEntry={!showPassword}
-                  testID="login-password-input"
                 />
-                <TouchableOpacity 
-                  onPress={() => setShowPassword(!showPassword)}
-                  testID="toggle-password-btn"
-                >
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   <Ionicons 
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
                     size={22} 
                     color={COLORS.textTertiary} 
                   />
                 </TouchableOpacity>
-              </MotiView>
+              </View>
             </View>
 
             {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotPassword} testID="forgot-password-btn">
+            <TouchableOpacity style={styles.forgotPassword}>
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: loading ? 0.98 : 1 }}
-              transition={{ type: 'spring', damping: 15 }}
-            >
-              <TouchableOpacity 
-                onPress={handleLogin} 
-                disabled={loading}
-                activeOpacity={0.9}
-                testID="login-submit-btn"
+            <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.9}>
+              <LinearGradient
+                colors={loading ? ['#D1D5DB', '#9CA3AF'] : ['#FF4D4D', '#F50057']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButton}
               >
-                <LinearGradient
-                  colors={loading ? ['#D1D5DB', '#9CA3AF'] : ['#FF4D4D', '#F50057']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.loginButton}
-                >
-                  {loading ? (
-                    <MotiView
-                      from={{ rotate: '0deg' }}
-                      animate={{ rotate: '360deg' }}
-                      transition={{ type: 'timing', duration: 1000, loop: true }}
-                    >
-                      <Ionicons name="reload" size={24} color={COLORS.white} />
-                    </MotiView>
-                  ) : (
-                    <>
-                      <Text style={styles.loginButtonText}>Sign In</Text>
-                      <Ionicons name="arrow-forward" size={22} color={COLORS.white} />
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </MotiView>
+                {loading ? (
+                  <Text style={styles.loginButtonText}>Signing in...</Text>
+                ) : (
+                  <>
+                    <Text style={styles.loginButtonText}>Sign In</Text>
+                    <Ionicons name="arrow-forward" size={22} color={COLORS.white} />
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* Divider */}
             <View style={styles.divider}>
@@ -236,30 +191,25 @@ export default function Login() {
 
             {/* Social Login */}
             <View style={styles.socialContainer}>
-              <TouchableOpacity style={styles.socialButton} testID="google-login-btn">
+              <TouchableOpacity style={styles.socialButton}>
                 <Ionicons name="logo-google" size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton} testID="apple-login-btn">
+              <TouchableOpacity style={styles.socialButton}>
                 <Ionicons name="logo-apple" size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton} testID="facebook-login-btn">
+              <TouchableOpacity style={styles.socialButton}>
                 <Ionicons name="logo-facebook" size={24} color="#1877F2" />
               </TouchableOpacity>
             </View>
-          </MotiView>
+          </Animated.View>
 
           {/* Sign Up Link */}
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 800 }}
-            style={styles.signupContainer}
-          >
+          <View style={styles.signupContainer}>
             <Text style={styles.signupText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/signup')} testID="goto-signup-btn">
+            <TouchableOpacity onPress={() => router.push('/signup')}>
               <Text style={styles.signupLink}>Sign Up</Text>
             </TouchableOpacity>
-          </MotiView>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -345,6 +295,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 2,
     borderColor: COLORS.border,
+  },
+  inputFocused: {
+    borderColor: COLORS.primary,
   },
   input: {
     flex: 1,

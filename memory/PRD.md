@@ -17,7 +17,7 @@ Complete rebuild of Certano social media app with:
 - **Backend**: Firebase (Authentication, Firestore)
 - **Media Storage**: Cloudinary
 - **AI**: Google Generative AI (Gemini) for meme generation
-- **Animations**: Moti library
+- **Animations**: Moti library (v0.29.0)
 - **UI**: Linear Gradients, Custom components
 
 ## Design System
@@ -56,11 +56,14 @@ Complete rebuild of Certano social media app with:
 - Reply to stories (sends to chat)
 - **Notifications sent on**: Story view
 
-#### 4. Reels System (FULLY WORKING)
+#### 4. Reels System (FULLY WORKING - UPDATED UI)
+- TikTok-style full-screen vertical player
 - Create reel with video upload
-- Caption and hashtags support
-- Full-screen vertical player
-- Like, comment, share buttons
+- Caption, hashtags, and music name support
+- Tap to play/pause
+- Like, comment, share buttons with animations
+- Music disc animation
+- Profile follow badge
 - **Notifications sent on**: Reel like, Reel comment
 
 #### 5. User Profiles
@@ -68,7 +71,7 @@ Complete rebuild of Certano social media app with:
 - Edit profile modal with all fields
 - Stats (Posts, Followers, Following)
 - Posts grid view
-- Settings bottom sheet
+- Settings bottom sheet with navigation
 - Sign out functionality
 
 #### 6. Follow System (FULLY CONNECTED)
@@ -96,6 +99,25 @@ Complete rebuild of Certano social media app with:
 - Story view notifications
 - Unread indicators
 - Click to navigate to relevant content
+
+#### 10. Create Post Page (UPDATED)
+- Modern UI with gradient buttons
+- Image picker from gallery or camera
+- Caption with character count (2000 max)
+- Hashtags input
+- Category selection (Lifestyle, Travel, Food, etc.)
+- Location tagging
+- Upload progress indicator
+
+#### 11. Settings Page (NEW)
+- Profile card with quick edit access
+- Account settings (Edit Profile, Security, Premium)
+- Privacy settings (Private Account toggle, Activity Status, Blocked)
+- Notification toggles
+- App settings (Dark Mode, Language, Data Saver)
+- Support links (Help, Contact, Terms, Privacy)
+- Log out and Delete account options
+- App version info
 
 ---
 

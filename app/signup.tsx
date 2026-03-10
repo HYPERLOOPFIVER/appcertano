@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
   ScrollView,
   Alert,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -32,6 +32,7 @@ const COLORS = {
   textTertiary: '#9CA3AF',
   error: '#EF4444',
   success: '#10B981',
+  warning: '#F59E0B',
   white: '#FFFFFF',
   inputBg: '#F3F4F6',
   border: '#E5E7EB',
@@ -47,6 +48,12 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
   const [agreeTerms, setAgreeTerms] = useState(false);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+  }, []);
 
   const handleSignup = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -74,7 +81,6 @@ export default function Signup() {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
-      // Create user document in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         name: name.trim(),
         email: email.trim(),
@@ -118,18 +124,9 @@ export default function Signup() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Decorative Background */}
-      <MotiView
-        from={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'timing', duration: 800 }}
-        style={styles.decorTop}
-      >
-        <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
-          style={styles.decorGradient}
-        />
-      </MotiView>
+      <View style={styles.decorTop}>
+        <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.decorGradient} />
+      </View>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -141,52 +138,23 @@ export default function Signup() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-          <MotiView
-            from={{ opacity: 0, translateX: -20 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ delay: 100 }}
-          >
-            <TouchableOpacity 
-              style={styles.backButton} 
-              onPress={() => router.back()}
-              testID="back-btn"
-            >
-              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          </MotiView>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
 
           {/* Header */}
-          <MotiView
-            from={{ opacity: 0, translateY: -20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 600, delay: 200 }}
-            style={styles.header}
-          >
+          <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
             <Text style={styles.welcomeText}>Create Account</Text>
             <Text style={styles.subtitleText}>Join Certano today!</Text>
-          </MotiView>
+          </Animated.View>
 
           {/* Form Container */}
-          <MotiView
-            from={{ opacity: 0, translateY: 30 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 600, delay: 400 }}
-            style={styles.formContainer}
-          >
+          <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
             {/* Name Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Full Name</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'name' ? COLORS.secondary : COLORS.border,
-                }}
-                style={styles.inputContainer}
-              >
-                <Ionicons 
-                  name="person-outline" 
-                  size={22} 
-                  color={focusedInput === 'name' ? COLORS.secondary : COLORS.textTertiary} 
-                />
+              <View style={[styles.inputContainer, focusedInput === 'name' && styles.inputFocused]}>
+                <Ionicons name="person-outline" size={22} color={focusedInput === 'name' ? COLORS.secondary : COLORS.textTertiary} />
                 <TextInput
                   style={styles.input}
                   placeholder="Your full name"
@@ -195,25 +163,15 @@ export default function Signup() {
                   onChangeText={setName}
                   onFocus={() => setFocusedInput('name')}
                   onBlur={() => setFocusedInput(null)}
-                  testID="signup-name-input"
                 />
-              </MotiView>
+              </View>
             </View>
 
             {/* Email Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Email</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'email' ? COLORS.secondary : COLORS.border,
-                }}
-                style={styles.inputContainer}
-              >
-                <Ionicons 
-                  name="mail-outline" 
-                  size={22} 
-                  color={focusedInput === 'email' ? COLORS.secondary : COLORS.textTertiary} 
-                />
+              <View style={[styles.inputContainer, focusedInput === 'email' && styles.inputFocused]}>
+                <Ionicons name="mail-outline" size={22} color={focusedInput === 'email' ? COLORS.secondary : COLORS.textTertiary} />
                 <TextInput
                   style={styles.input}
                   placeholder="your@email.com"
@@ -224,25 +182,15 @@ export default function Signup() {
                   onBlur={() => setFocusedInput(null)}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  testID="signup-email-input"
                 />
-              </MotiView>
+              </View>
             </View>
 
             {/* Password Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Password</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'password' ? COLORS.secondary : COLORS.border,
-                }}
-                style={styles.inputContainer}
-              >
-                <Ionicons 
-                  name="lock-closed-outline" 
-                  size={22} 
-                  color={focusedInput === 'password' ? COLORS.secondary : COLORS.textTertiary} 
-                />
+              <View style={[styles.inputContainer, focusedInput === 'password' && styles.inputFocused]}>
+                <Ionicons name="lock-closed-outline" size={22} color={focusedInput === 'password' ? COLORS.secondary : COLORS.textTertiary} />
                 <TextInput
                   style={styles.input}
                   placeholder="Create a password"
@@ -252,60 +200,35 @@ export default function Signup() {
                   onFocus={() => setFocusedInput('password')}
                   onBlur={() => setFocusedInput(null)}
                   secureTextEntry={!showPassword}
-                  testID="signup-password-input"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons 
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
-                    size={22} 
-                    color={COLORS.textTertiary} 
-                  />
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={COLORS.textTertiary} />
                 </TouchableOpacity>
-              </MotiView>
+              </View>
               
               {/* Password Strength */}
               {password.length > 0 && (
-                <MotiView
-                  from={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  style={styles.strengthContainer}
-                >
+                <View style={styles.strengthContainer}>
                   <View style={styles.strengthBars}>
                     {[1, 2, 3].map((level) => (
-                      <MotiView
+                      <View
                         key={level}
-                        animate={{
-                          backgroundColor: level <= passwordStrength.level 
-                            ? passwordStrength.color 
-                            : COLORS.border,
-                        }}
-                        style={styles.strengthBar}
+                        style={[styles.strengthBar, { backgroundColor: level <= passwordStrength.level ? passwordStrength.color : COLORS.border }]}
                       />
                     ))}
                   </View>
                   <Text style={[styles.strengthText, { color: passwordStrength.color }]}>
                     {passwordStrength.text}
                   </Text>
-                </MotiView>
+                </View>
               )}
             </View>
 
             {/* Confirm Password Input */}
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Confirm Password</Text>
-              <MotiView
-                animate={{
-                  borderColor: focusedInput === 'confirm' 
-                    ? (confirmPassword && confirmPassword === password ? COLORS.success : COLORS.secondary) 
-                    : COLORS.border,
-                }}
-                style={styles.inputContainer}
-              >
-                <Ionicons 
-                  name="shield-checkmark-outline" 
-                  size={22} 
-                  color={focusedInput === 'confirm' ? COLORS.secondary : COLORS.textTertiary} 
-                />
+              <View style={[styles.inputContainer, focusedInput === 'confirm' && styles.inputFocused]}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={focusedInput === 'confirm' ? COLORS.secondary : COLORS.textTertiary} />
                 <TextInput
                   style={styles.input}
                   placeholder="Confirm your password"
@@ -315,7 +238,6 @@ export default function Signup() {
                   onFocus={() => setFocusedInput('confirm')}
                   onBlur={() => setFocusedInput(null)}
                   secureTextEntry={!showPassword}
-                  testID="signup-confirm-password-input"
                 />
                 {confirmPassword.length > 0 && (
                   <Ionicons 
@@ -324,24 +246,14 @@ export default function Signup() {
                     color={confirmPassword === password ? COLORS.success : COLORS.error} 
                   />
                 )}
-              </MotiView>
+              </View>
             </View>
 
             {/* Terms Checkbox */}
-            <TouchableOpacity 
-              style={styles.termsContainer}
-              onPress={() => setAgreeTerms(!agreeTerms)}
-              testID="agree-terms-checkbox"
-            >
-              <MotiView
-                animate={{
-                  backgroundColor: agreeTerms ? COLORS.secondary : 'transparent',
-                  borderColor: agreeTerms ? COLORS.secondary : COLORS.border,
-                }}
-                style={styles.checkbox}
-              >
+            <TouchableOpacity style={styles.termsContainer} onPress={() => setAgreeTerms(!agreeTerms)}>
+              <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
                 {agreeTerms && <Ionicons name="checkmark" size={14} color={COLORS.white} />}
-              </MotiView>
+              </View>
               <Text style={styles.termsText}>
                 I agree to the <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
                 <Text style={styles.termsLink}>Privacy Policy</Text>
@@ -349,54 +261,32 @@ export default function Signup() {
             </TouchableOpacity>
 
             {/* Signup Button */}
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: loading ? 0.98 : 1 }}
-              transition={{ type: 'spring', damping: 15 }}
-            >
-              <TouchableOpacity 
-                onPress={handleSignup} 
-                disabled={loading}
-                activeOpacity={0.9}
-                testID="signup-submit-btn"
+            <TouchableOpacity onPress={handleSignup} disabled={loading} activeOpacity={0.9}>
+              <LinearGradient
+                colors={loading ? ['#D1D5DB', '#9CA3AF'] : ['#6366F1', '#8B5CF6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.signupButton}
               >
-                <LinearGradient
-                  colors={loading ? ['#D1D5DB', '#9CA3AF'] : ['#6366F1', '#8B5CF6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.signupButton}
-                >
-                  {loading ? (
-                    <MotiView
-                      from={{ rotate: '0deg' }}
-                      animate={{ rotate: '360deg' }}
-                      transition={{ type: 'timing', duration: 1000, loop: true }}
-                    >
-                      <Ionicons name="reload" size={24} color={COLORS.white} />
-                    </MotiView>
-                  ) : (
-                    <>
-                      <Text style={styles.signupButtonText}>Create Account</Text>
-                      <Ionicons name="sparkles" size={22} color={COLORS.white} />
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </MotiView>
-          </MotiView>
+                {loading ? (
+                  <Text style={styles.signupButtonText}>Creating account...</Text>
+                ) : (
+                  <>
+                    <Text style={styles.signupButtonText}>Create Account</Text>
+                    <Ionicons name="sparkles" size={22} color={COLORS.white} />
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Login Link */}
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 800 }}
-            style={styles.loginContainer}
-          >
+          <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/login')} testID="goto-login-btn">
+            <TouchableOpacity onPress={() => router.push('/login')}>
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
-          </MotiView>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -487,6 +377,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.border,
   },
+  inputFocused: {
+    borderColor: COLORS.secondary,
+  },
   input: {
     flex: 1,
     paddingVertical: 14,
@@ -524,9 +417,14 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
+    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
   },
   termsText: {
     flex: 1,

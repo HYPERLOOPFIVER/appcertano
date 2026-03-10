@@ -1,240 +1,211 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, Image, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
-// Add this to your environment variables or config
-const GOOGLE_AI_API_KEY = 'AIzaSyCoRzhqrayROM7dImhISWNzmHzQnW09KZs'; // Replace with your actual API key
+const { width } = Dimensions.get('window');
 
-export default function CreatePostOrReel() {
-  const [type, setType] = useState<'posts' | 'reels'>('posts');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+const COLORS = {
+  primary: '#F50057',
+  primaryLight: '#FF4D4D',
+  secondary: '#6366F1',
+  background: '#FAFAFA',
+  surface: '#FFFFFF',
+  surfaceLight: '#F3F4F6',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  success: '#10B981',
+  error: '#EF4444',
+  white: '#FFFFFF',
+  border: '#E5E7EB',
+};
+
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfzmg1jtd/upload';
+const UPLOAD_PRESET = 'Prepop';
+
+const CATEGORIES = [
+  { id: 'lifestyle', label: 'Lifestyle', icon: 'heart-outline', color: '#F50057' },
+  { id: 'travel', label: 'Travel', icon: 'airplane-outline', color: '#3B82F6' },
+  { id: 'food', label: 'Food', icon: 'restaurant-outline', color: '#F59E0B' },
+  { id: 'fashion', label: 'Fashion', icon: 'shirt-outline', color: '#8B5CF6' },
+  { id: 'tech', label: 'Tech', icon: 'laptop-outline', color: '#10B981' },
+  { id: 'fitness', label: 'Fitness', icon: 'fitness-outline', color: '#EF4444' },
+  { id: 'art', label: 'Art', icon: 'color-palette-outline', color: '#EC4899' },
+  { id: 'music', label: 'Music', icon: 'musical-notes-outline', color: '#06B6D4' },
+];
+
+export default function CreatePost() {
+  const router = useRouter();
+  const [imageUri, setImageUri] = useState(null);
   const [caption, setCaption] = useState('');
-  const [category, setCategory] = useState('');
   const [hashtags, setHashtags] = useState('');
-  const [musicName, setMusicName] = useState('');
-  const [mediaUri, setMediaUri] = useState('');
-  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [location, setLocation] = useState(null);
   const [placeName, setPlaceName] = useState('');
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  
-  // AI Meme Generation States
-  const [isGeneratingMeme, setIsGeneratingMeme] = useState(false);
-  const [aiGeneratedContent, setAiGeneratedContent] = useState(null);
-  const [memePrompt, setMemePrompt] = useState('');
-  const [showAiSection, setShowAiSection] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfzmg1jtd/upload';
-  const UPLOAD_PRESET = 'Prepop';
+  const currentUserId = auth.currentUser?.uid;
 
-  // AI Meme Generation Function
-  const generateMemeWithAI = async () => {
-    if (!memePrompt.trim()) {
-      Alert.alert('Error', 'Please enter a meme idea or topic');
-      return;
-    }
-
-    setIsGeneratingMeme(true);
+  const pickImage = async () => {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_AI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Generate a funny and creative meme idea based on: "${memePrompt}". 
-              Please provide:
-              1. A catchy post title (max 60 characters)
-              2. A detailed description for the meme (2-3 sentences)
-              3. A creative caption that would work well with the meme
-              4. 5-7 relevant hashtags
-              5. A category (like "humor", "relatable", "trending", "lifestyle", etc.)
-              
-              Make it engaging, shareable, and appropriate for social media. The content should be original and avoid any copyrighted material.
-              
-              Format your response as JSON:
-              {
-                "title": "...",
-                "description": "...",
-                "caption": "...",
-                "hashtags": "...",
-                "category": "..."
-              }`
-            }]
-          }]
-        })
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant gallery access to select images');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'AI generation failed');
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
       }
-
-      // Extract the JSON from the AI response
-      const aiText = data.candidates[0]?.content?.parts[0]?.text || '';
-      console.log('AI Response:', aiText);
-      
-      // Try to parse JSON from the response
-      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsedContent = JSON.parse(jsonMatch[0]);
-        setAiGeneratedContent(parsedContent);
-        
-        // Auto-fill the form with AI generated content
-        setTitle(parsedContent.title);
-        setDescription(parsedContent.description);
-        setCaption(parsedContent.caption);
-        setHashtags(parsedContent.hashtags);
-        setCategory(parsedContent.category);
-        
-        Alert.alert('✨ AI Meme Generated!', 'Your meme idea has been generated and filled into the form. You can edit it before posting.');
-      } else {
-        throw new Error('Could not parse AI response');
-      }
-      
     } catch (error) {
-      console.error('AI Generation Error:', error);
-      Alert.alert('Error', 'Failed to generate meme idea. Please try again.');
-    } finally {
-      setIsGeneratingMeme(false);
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
-  // Generate random meme prompts for inspiration
-  const getRandomMemePrompt = () => {
-    const prompts = [
-      "Monday morning struggles",
-      "When you see your ex with someone new",
-      "Trying to adult but failing",
-      "Online shopping vs reality",
-      "Expectations vs reality",
-      "When someone says pineapple belongs on pizza",
-      "Me trying to save money",
-      "Social media vs real life",
-      "When you remember something embarrassing from 10 years ago",
-      "Trying to look busy at work"
-    ];
-    const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
-    setMemePrompt(randomPrompt);
-  };
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera access to take photos');
+        return;
+      }
 
-  const pickMedia = async () => {
-    const mediaTypes = type === 'posts'
-      ? ImagePicker.MediaTypeOptions.Images
-      : ImagePicker.MediaTypeOptions.Videos;
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 5],
+        quality: 0.9,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes,
-      allowsEditing: false,
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets.length > 0) {
-      const picked = result.assets[0];
-      console.log('Picked media:', picked);
-      setMediaUri(picked.uri);
-      setMediaType(type === 'posts' ? 'image' : 'video');
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
     }
   };
 
   const getCurrentLocation = async () => {
     setIsGettingLocation(true);
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is required to add location to your post');
-        setIsGettingLocation(false);
+        Alert.alert('Permission denied', 'Location permission is required');
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
-      
+      const loc = await Location.getCurrentPositionAsync({});
+      setLocation(loc);
+
       const geocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
       });
-      
+
       if (geocode.length > 0) {
         const place = geocode[0];
-        const name = place.name || '';
-        const city = place.city || '';
-        const region = place.region || '';
-        const country = place.country || '';
-        
-        setPlaceName([name, city, region, country].filter(Boolean).join(', '));
+        const parts = [place.name, place.city, place.region].filter(Boolean);
+        setPlaceName(parts.join(', '));
       }
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location');
+      Alert.alert('Error', 'Could not get your location');
     } finally {
       setIsGettingLocation(false);
     }
   };
 
-  const removeLocation = () => {
-    setLocation(null);
-    setPlaceName('');
-  };
-
-  const uploadToCloudinary = async () => {
-    if (!mediaUri) throw new Error('No media selected');
-
-    const fileType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
-    const fileExt = mediaType === 'video' ? 'mp4' : 'jpg';
-
+  const uploadToCloudinary = async (uri) => {
     const formData = new FormData();
     formData.append('file', {
-      uri: mediaUri,
-      type: fileType,
-      name: `upload.${fileExt}`,
-    } as any);
-
+      uri,
+      type: 'image/jpeg',
+      name: 'post.jpg',
+    });
     formData.append('upload_preset', UPLOAD_PRESET);
 
-    try {
-      const response = await fetch(CLOUDINARY_URL, {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch(CLOUDINARY_URL, {
+      method: 'POST',
+      body: formData,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Cloudinary upload failed:', data);
-        throw new Error(data.error?.message || 'Upload failed');
-      }
-
-      console.log('Cloudinary upload success:', data);
-      return data.secure_url;
-    } catch (error: any) {
-      console.error('Cloudinary Upload Error:', error.message);
-      throw error;
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Upload failed');
     }
+
+    return data.secure_url;
   };
 
-  const handleUpload = async () => {
+  const handlePost = async () => {
+    if (!imageUri) {
+      Alert.alert('Image Required', 'Please select an image for your post');
+      return;
+    }
+
+    if (!caption.trim()) {
+      Alert.alert('Caption Required', 'Please add a caption to your post');
+      return;
+    }
+
+    if (!currentUserId) {
+      Alert.alert('Error', 'Please log in to create a post');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(20);
+
     try {
-      const mediaUrl = await uploadToCloudinary();
+      // Upload image
+      setUploadProgress(40);
+      const imageUrl = await uploadToCloudinary(imageUri);
       
-      const postData: any = {
-        uid: auth.currentUser?.uid,
-        createdAt: serverTimestamp(),
+      setUploadProgress(70);
+
+      // Create post document
+      const postData = {
+        uid: currentUserId,
+        image: imageUrl,
+        caption: caption.trim(),
+        hashtags: hashtags.trim(),
+        category: selectedCategory,
         likes: [],
         comments: [],
-        isAiGenerated: aiGeneratedContent ? true : false, // Flag to indicate AI-generated content
-        ...(type === 'posts'
-          ? { title, description, image: mediaUrl, category, hashtags }
-          : { caption, videoUrl: mediaUrl, musicName, hashtags }),
+        createdAt: serverTimestamp(),
       };
-      
+
       if (location) {
         postData.location = {
           latitude: location.coords.latitude,
@@ -242,361 +213,556 @@ export default function CreatePostOrReel() {
           placeName: placeName,
         };
       }
+
+      await addDoc(collection(db, 'posts'), postData);
       
-      await addDoc(collection(db, type), postData);
-      Alert.alert(`${type === 'posts' ? 'Post' : 'Reel'} uploaded!`);
-      resetForm();
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Upload failed');
+      setUploadProgress(100);
+
+      Alert.alert('Posted! 🎉', 'Your post is now live!', [
+        { text: 'View Feed', onPress: () => router.replace('/home') }
+      ]);
+    } catch (error) {
+      console.error('Error posting:', error);
+      Alert.alert('Error', 'Failed to create post. Please try again.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setCaption('');
-    setMusicName('');
-    setCategory('');
-    setHashtags('');
-    setMediaUri('');
-    setLocation(null);
-    setPlaceName('');
-    setAiGeneratedContent(null);
-    setMemePrompt('');
-    setShowAiSection(false);
-  };
-
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.heading}>Create {type}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       
-      {/* AI Meme Generator Section */}
-      <View style={styles.aiSection}>
-        <TouchableOpacity 
-          style={styles.aiToggleButton} 
-          onPress={() => setShowAiSection(!showAiSection)}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        {/* Header */}
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          style={styles.header}
         >
-          <Text style={styles.aiToggleText}>
-            ✨ AI Meme Generator {showAiSection ? '▼' : '▶'}
-          </Text>
-        </TouchableOpacity>
-        
-        {showAiSection && (
-          <View style={styles.aiContent}>
-            <Text style={styles.aiDescription}>
-              Let AI create awesome meme ideas for you! Just describe what kind of meme you want.
-            </Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Describe your meme idea (e.g., 'funny cat memes', 'work from home struggles')"
-              value={memePrompt}
-              onChangeText={setMemePrompt}
-              multiline
-            />
-            
-            <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.headerBtn}
+            testID="back-btn"
+          >
+            <Ionicons name="close" size={28} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>New Post</Text>
+          <TouchableOpacity
+            style={[styles.postBtn, (!imageUri || !caption.trim() || uploading) && styles.postBtnDisabled]}
+            onPress={handlePost}
+            disabled={!imageUri || !caption.trim() || uploading}
+            testID="post-btn"
+          >
+            {uploading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.postBtnText}>Share</Text>
+            )}
+          </TouchableOpacity>
+        </MotiView>
+
+        <ScrollView 
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentContainer}
+        >
+          {/* Image Section */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 100 }}
+            style={styles.imageSection}
+          >
+            {imageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeImageBtn}
+                  onPress={() => setImageUri(null)}
+                >
+                  <Ionicons name="close-circle" size={32} color={COLORS.white} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.changeImageBtn}
+                  onPress={pickImage}
+                >
+                  <Ionicons name="images" size={20} color={COLORS.white} />
+                  <Text style={styles.changeImageText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <LinearGradient 
+                  colors={['rgba(245,0,87,0.1)', 'rgba(99,102,241,0.1)']}
+                  style={styles.placeholderGradient}
+                >
+                  <Ionicons name="images" size={60} color={COLORS.primary} />
+                  <Text style={styles.placeholderTitle}>Add Photo</Text>
+                  <Text style={styles.placeholderText}>Tap below to select or take a photo</Text>
+                </LinearGradient>
+              </View>
+            )}
+
+            {/* Image Source Buttons */}
+            <View style={styles.imageSourceButtons}>
               <TouchableOpacity 
-                style={[styles.smallButton, styles.randomButton]} 
-                onPress={getRandomMemePrompt}
+                style={styles.sourceBtn}
+                onPress={pickImage}
+                testID="gallery-btn"
               >
-                <Text style={styles.smallButtonText}>🎲 Random Idea</Text>
+                <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.sourceBtnGradient}>
+                  <Ionicons name="images" size={24} color={COLORS.white} />
+                </LinearGradient>
+                <Text style={styles.sourceBtnText}>Gallery</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.smallButton, styles.generateButton]} 
-                onPress={generateMemeWithAI}
-                disabled={isGeneratingMeme}
+                style={styles.sourceBtn}
+                onPress={takePhoto}
+                testID="camera-btn"
               >
-                <Text style={styles.smallButtonText}>
-                  {isGeneratingMeme ? '🤖 Generating...' : '✨ Generate Meme'}
-                </Text>
+                <LinearGradient colors={['#F50057', '#FF4D4D']} style={styles.sourceBtnGradient}>
+                  <Ionicons name="camera" size={24} color={COLORS.white} />
+                </LinearGradient>
+                <Text style={styles.sourceBtnText}>Camera</Text>
               </TouchableOpacity>
             </View>
-            
-            {aiGeneratedContent && (
-              <View style={styles.aiPreview}>
-                <Text style={styles.aiPreviewTitle}>🤖 AI Generated Content:</Text>
-                <Text style={styles.aiPreviewText}>Title: {aiGeneratedContent.title}</Text>
-                <Text style={styles.aiPreviewText}>Category: {aiGeneratedContent.category}</Text>
-                <Text style={styles.aiPreviewHint}>Content has been auto-filled below. You can edit it!</Text>
+          </MotiView>
+
+          {/* Caption Section */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 200 }}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>Caption</Text>
+            <View style={styles.captionContainer}>
+              <TextInput
+                style={styles.captionInput}
+                placeholder="Write something amazing..."
+                placeholderTextColor={COLORS.textTertiary}
+                value={caption}
+                onChangeText={setCaption}
+                multiline
+                maxLength={2000}
+                testID="caption-input"
+              />
+              <Text style={styles.charCount}>{caption.length}/2000</Text>
+            </View>
+          </MotiView>
+
+          {/* Hashtags Section */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 300 }}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>Hashtags</Text>
+            <View style={styles.hashtagsContainer}>
+              <Ionicons name="pricetag-outline" size={20} color={COLORS.textTertiary} />
+              <TextInput
+                style={styles.hashtagsInput}
+                placeholder="#travel #photography #lifestyle"
+                placeholderTextColor={COLORS.textTertiary}
+                value={hashtags}
+                onChangeText={setHashtags}
+                testID="hashtags-input"
+              />
+            </View>
+          </MotiView>
+
+          {/* Category Section */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 400 }}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>Category</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {CATEGORIES.map((cat, index) => (
+                <MotiView
+                  key={cat.id}
+                  from={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 400 + index * 50 }}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChip,
+                      selectedCategory === cat.id && { backgroundColor: cat.color, borderColor: cat.color }
+                    ]}
+                    onPress={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                    testID={`category-${cat.id}`}
+                  >
+                    <Ionicons 
+                      name={cat.icon} 
+                      size={18} 
+                      color={selectedCategory === cat.id ? COLORS.white : cat.color} 
+                    />
+                    <Text style={[
+                      styles.categoryLabel,
+                      selectedCategory === cat.id && { color: COLORS.white }
+                    ]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                </MotiView>
+              ))}
+            </ScrollView>
+          </MotiView>
+
+          {/* Location Section */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 500 }}
+            style={styles.section}
+          >
+            <Text style={styles.sectionTitle}>Location</Text>
+            {location ? (
+              <View style={styles.locationSelected}>
+                <View style={styles.locationInfo}>
+                  <Ionicons name="location" size={20} color={COLORS.primary} />
+                  <Text style={styles.locationText}>{placeName}</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => { setLocation(null); setPlaceName(''); }}
+                  style={styles.removeLocationBtn}
+                >
+                  <Ionicons name="close" size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
               </View>
+            ) : (
+              <TouchableOpacity 
+                style={styles.addLocationBtn}
+                onPress={getCurrentLocation}
+                disabled={isGettingLocation}
+                testID="add-location-btn"
+              >
+                {isGettingLocation ? (
+                  <>
+                    <ActivityIndicator size="small" color={COLORS.secondary} />
+                    <Text style={styles.addLocationText}>Getting location...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="location-outline" size={22} color={COLORS.secondary} />
+                    <Text style={styles.addLocationText}>Add Location</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
-          </View>
-        )}
-      </View>
+          </MotiView>
 
-      <Button title="Pick Media" onPress={pickMedia} />
+          {/* Upload Progress */}
+          {uploading && (
+            <MotiView
+              from={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              style={styles.progressSection}
+            >
+              <View style={styles.progressHeader}>
+                <Ionicons name="cloud-upload" size={24} color={COLORS.primary} />
+                <Text style={styles.progressText}>Uploading... {uploadProgress}%</Text>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <MotiView
+                  animate={{ width: `${uploadProgress}%` }}
+                  transition={{ type: 'timing', duration: 300 }}
+                  style={styles.progressBar}
+                />
+              </View>
+            </MotiView>
+          )}
 
-      {mediaUri ? (
-        type === 'posts' ? (
-          <Image source={{ uri: mediaUri }} style={styles.preview} />
-        ) : (
-          <Text style={styles.previewText}>Video Selected</Text>
-        )
-      ) : null}
-
-      {type === 'posts' ? (
-        <>
-          <View style={styles.inputContainer}>
-            <TextInput 
-              style={[styles.input, aiGeneratedContent && styles.aiFilledInput]} 
-              placeholder="Title" 
-              value={title} 
-              onChangeText={setTitle} 
-            />
-            {aiGeneratedContent && title === aiGeneratedContent.title && (
-              <Text style={styles.aiLabel}>🤖 AI</Text>
-            )}
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <TextInput 
-              style={[styles.input, aiGeneratedContent && styles.aiFilledInput]} 
-              placeholder="Description" 
-              value={description} 
-              onChangeText={setDescription} 
-              multiline
-            />
-            {aiGeneratedContent && description === aiGeneratedContent.description && (
-              <Text style={styles.aiLabel}>🤖 AI</Text>
-            )}
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <TextInput 
-              style={[styles.input, aiGeneratedContent && styles.aiFilledInput]} 
-              placeholder="Category" 
-              value={category} 
-              onChangeText={setCategory} 
-            />
-            {aiGeneratedContent && category === aiGeneratedContent.category && (
-              <Text style={styles.aiLabel}>🤖 AI</Text>
-            )}
-          </View>
-        </>
-      ) : (
-        <>
-          <View style={styles.inputContainer}>
-            <TextInput 
-              style={[styles.input, aiGeneratedContent && styles.aiFilledInput]} 
-              placeholder="Caption" 
-              value={caption} 
-              onChangeText={setCaption} 
-              multiline
-            />
-            {aiGeneratedContent && caption === aiGeneratedContent.caption && (
-              <Text style={styles.aiLabel}>🤖 AI</Text>
-            )}
-          </View>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Music Name (optional)" 
-            value={musicName} 
-            onChangeText={setMusicName} 
-          />
-        </>
-      )}
-
-      <View style={styles.inputContainer}>
-        <TextInput 
-          style={[styles.input, aiGeneratedContent && styles.aiFilledInput]} 
-          placeholder="Hashtags (comma separated)" 
-          value={hashtags} 
-          onChangeText={setHashtags} 
-        />
-        {aiGeneratedContent && hashtags === aiGeneratedContent.hashtags && (
-          <Text style={styles.aiLabel}>🤖 AI</Text>
-        )}
-      </View>
-      
-      {/* Location Section */}
-      <View style={styles.locationSection}>
-        <Text style={styles.sectionHeading}>Location (optional)</Text>
-        
-        {location ? (
-          <>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Place name" 
-              value={placeName} 
-              onChangeText={setPlaceName} 
-            />
-            <Button title="Remove Location" onPress={removeLocation} color="#E63946" />
-          </>
-        ) : (
-          <Button 
-            title="Add Current Location" 
-            onPress={getCurrentLocation} 
-            color="#457B9D"
-            disabled={isGettingLocation}
-          />
-        )}
-      </View>
-
-      <View style={styles.bottomButtons}>
-        <Button title="Upload" onPress={handleUpload} color="#006D77" />
-        <View style={styles.buttonSpacer} />
-        <Button 
-          title={`Switch to ${type === 'posts' ? 'Reels' : 'Posts'}`} 
-          onPress={() => setType(type === 'posts' ? 'reels' : 'posts')} 
-        />
-      </View>
-    </ScrollView>
+          {/* Extra Spacing */}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 20, 
-    backgroundColor: '#EDF6F9' 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  heading: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    color: '#006D77', 
-    marginBottom: 16 
+  keyboardView: {
+    flex: 1,
   },
-  input: { 
-    backgroundColor: '#fff', 
-    padding: 10, 
-    marginBottom: 12, 
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd'
-  },
-  aiFilledInput: {
-    borderColor: '#4CAF50',
-    borderWidth: 2,
-    backgroundColor: '#f0fff0'
-  },
-  inputContainer: {
-    position: 'relative',
-    marginBottom: 0
-  },
-  aiLabel: {
-    position: 'absolute',
-    top: -8,
-    right: 10,
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    fontSize: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    fontWeight: 'bold'
-  },
-  preview: { 
-    width: '100%', 
-    height: 200, 
-    marginVertical: 10, 
-    borderRadius: 10 
-  },
-  previewText: { 
-    marginVertical: 10, 
-    fontSize: 16, 
-    color: '#333' 
-  },
-  locationSection: { 
-    marginVertical: 15 
-  },
-  sectionHeading: { 
-    fontSize: 18, 
-    fontWeight: '600', 
-    color: '#006D77', 
-    marginBottom: 10 
-  },
-  aiSection: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
-  },
-  aiToggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10
-  },
-  aiToggleText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#006D77'
-  },
-  aiContent: {
-    marginTop: 10
-  },
-  aiDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 20
-  },
-  buttonRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  smallButton: {
-    flex: 1,
+  headerBtn: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  postBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
     paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginHorizontal: 5
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
   },
-  randomButton: {
-    backgroundColor: '#457B9D'
+  postBtnDisabled: {
+    backgroundColor: COLORS.textTertiary,
   },
-  generateButton: {
-    backgroundColor: '#006D77'
-  },
-  smallButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontSize: 12
-  },
-  aiPreview: {
-    backgroundColor: '#f0fff0',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 15,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50'
-  },
-  aiPreviewTitle: {
+  postBtnText: {
+    color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-    marginBottom: 8
+    fontWeight: '700',
   },
-  aiPreviewText: {
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+  },
+  imageSection: {
+    marginBottom: 24,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: COLORS.surfaceLight,
+  },
+  imagePreview: {
+    width: '100%',
+    height: width * 1.1,
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  changeImageBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  changeImageText: {
+    color: COLORS.white,
     fontSize: 14,
-    color: '#388E3C',
-    marginBottom: 4
+    fontWeight: '600',
   },
-  aiPreviewHint: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 8
+  imagePlaceholder: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
   },
-  bottomButtons: {
+  placeholderGradient: {
+    height: 280,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: 16,
+  },
+  placeholderText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+  },
+  imageSourceButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
     marginTop: 20,
-    marginBottom: 30
   },
-  buttonSpacer: {
-    height: 10
-  }
+  sourceBtn: {
+    alignItems: 'center',
+  },
+  sourceBtnGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sourceBtnText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  captionContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  captionInput: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    lineHeight: 24,
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    textAlign: 'right',
+    marginTop: 8,
+  },
+  hashtagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  hashtagsInput: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
+  categoriesContainer: {
+    gap: 10,
+    paddingRight: 20,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    gap: 8,
+  },
+  categoryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  addLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 10,
+  },
+  addLocationText: {
+    fontSize: 16,
+    color: COLORS.secondary,
+    fontWeight: '600',
+  },
+  locationSelected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  locationText: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    flex: 1,
+  },
+  removeLocationBtn: {
+    padding: 4,
+  },
+  progressSection: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  progressText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+  },
 });
-
-// Additional configuration needed:
-// 1. Install Google AI SDK: npm install @google/generative-ai
-// 2. Get Google AI API key from: https://makersuite.google.com/app/apikey
-// 3. Add the API key to your environment variables or secure storage

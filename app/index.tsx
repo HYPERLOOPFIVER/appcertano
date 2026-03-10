@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, StatusBar } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, StatusBar, TouchableOpacity, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MotiView, MotiText } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,154 +15,78 @@ const COLORS = {
 
 export default function Splash() {
   const router = useRouter();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Animated Background Gradient */}
       <LinearGradient
         colors={['#1F2937', '#111827', '#0F172A']}
         style={StyleSheet.absoluteFill}
       />
       
       {/* Decorative Circles */}
-      <MotiView
-        from={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.1 }}
-        transition={{ type: 'timing', duration: 1000, delay: 200 }}
-        style={styles.decorCircle1}
-      />
-      <MotiView
-        from={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.08 }}
-        transition={{ type: 'timing', duration: 1000, delay: 400 }}
-        style={styles.decorCircle2}
-      />
-      <MotiView
-        from={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.05 }}
-        transition={{ type: 'timing', duration: 1000, delay: 600 }}
-        style={styles.decorCircle3}
-      />
+      <View style={styles.decorCircle1} />
+      <View style={styles.decorCircle2} />
 
       {/* Logo Container */}
       <View style={styles.content}>
-        {/* Pulsing Logo */}
-        <MotiView
-          from={{ scale: 0, rotate: '-180deg' }}
-          animate={{ scale: 1, rotate: '0deg' }}
-          transition={{ type: 'spring', damping: 10, delay: 300 }}
-          style={styles.logoContainer}
-        >
-          <LinearGradient
-            colors={['#FF4D4D', '#F50057']}
-            style={styles.logoGradient}
-          >
-            <MotiView
-              from={{ scale: 1 }}
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ 
-                type: 'timing', 
-                duration: 2000,
-                loop: true,
-              }}
-            >
-              <Ionicons name="planet" size={60} color={COLORS.white} />
-            </MotiView>
+        <Animated.View style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+          <LinearGradient colors={['#FF4D4D', '#F50057']} style={styles.logoGradient}>
+            <Ionicons name="planet" size={60} color={COLORS.white} />
           </LinearGradient>
-        </MotiView>
+        </Animated.View>
 
-        {/* App Name */}
-        <MotiText
-          from={{ opacity: 0, translateY: 30 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600, delay: 600 }}
-          style={styles.title}
-        >
+        <Animated.Text style={[styles.title, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           Certano
-        </MotiText>
+        </Animated.Text>
 
-        {/* Tagline */}
-        <MotiText
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 600, delay: 800 }}
-          style={styles.subtitle}
-        >
+        <Animated.Text style={[styles.subtitle, { opacity: fadeAnim }]}>
           India's First Social Media Platform
-        </MotiText>
-
-        {/* Animated dots */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1000 }}
-          style={styles.dotsContainer}
-        >
-          {[0, 1, 2].map((i) => (
-            <MotiView
-              key={i}
-              from={{ scale: 0.5, opacity: 0.3 }}
-              animate={{ scale: [0.5, 1, 0.5], opacity: [0.3, 1, 0.3] }}
-              transition={{
-                type: 'timing',
-                duration: 1000,
-                delay: i * 200,
-                loop: true,
-              }}
-              style={styles.dot}
-            />
-          ))}
-        </MotiView>
+        </Animated.Text>
       </View>
 
       {/* Get Started Button */}
-      <MotiView
-        from={{ opacity: 0, translateY: 50 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'spring', damping: 15, delay: 1200 }}
-        style={styles.buttonContainer}
-      >
-        <MotiView
-          from={{ scale: 1 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.95 }}
-        >
+      <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <TouchableOpacity onPress={() => router.replace('/login')} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF4D4D', '#F50057']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.button}
           >
-            <Text 
-              style={styles.buttonText}
-              onPress={() => router.replace('/login')}
-              testID="get-started-btn"
-            >
-              Get Started
-            </Text>
-            <MotiView
-              from={{ translateX: 0 }}
-              animate={{ translateX: [0, 5, 0] }}
-              transition={{ type: 'timing', duration: 1500, loop: true }}
-            >
-              <Ionicons name="arrow-forward" size={24} color={COLORS.white} />
-            </MotiView>
+            <Text style={styles.buttonText}>Get Started</Text>
+            <Ionicons name="arrow-forward" size={24} color={COLORS.white} />
           </LinearGradient>
-        </MotiView>
+        </TouchableOpacity>
 
-        {/* Terms Text */}
-        <MotiText
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1500 }}
-          style={styles.termsText}
-        >
+        <Text style={styles.termsText}>
           By continuing, you agree to our Terms & Privacy Policy
-        </MotiText>
-      </MotiView>
+        </Text>
+      </Animated.View>
     </View>
   );
 }
@@ -179,7 +102,7 @@ const styles = StyleSheet.create({
     width: width * 1.5,
     height: width * 1.5,
     borderRadius: width,
-    backgroundColor: '#F50057',
+    backgroundColor: 'rgba(245, 0, 87, 0.1)',
     top: -width * 0.5,
     right: -width * 0.5,
   },
@@ -188,18 +111,9 @@ const styles = StyleSheet.create({
     width: width * 1.2,
     height: width * 1.2,
     borderRadius: width,
-    backgroundColor: '#6366F1',
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
     bottom: -width * 0.3,
     left: -width * 0.5,
-  },
-  decorCircle3: {
-    position: 'absolute',
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: width,
-    backgroundColor: '#F50057',
-    bottom: height * 0.3,
-    right: -width * 0.3,
   },
   content: {
     alignItems: 'center',
@@ -232,17 +146,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.6)',
     fontWeight: '500',
     letterSpacing: 0.5,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    marginTop: 40,
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#F50057',
   },
   buttonContainer: {
     position: 'absolute',

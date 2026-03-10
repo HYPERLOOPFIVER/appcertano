@@ -343,7 +343,7 @@ export default function Profile() {
           <View style={styles.settingsHandle} />
           
           {[
-            { icon: 'settings-outline', label: 'Settings', color: COLORS.textPrimary },
+            { icon: 'settings-outline', label: 'Settings', color: COLORS.textPrimary, onPress: () => { setSettingsModalVisible(false); router.push('/settings'); } },
             { icon: 'bookmark-outline', label: 'Saved Posts', color: COLORS.textPrimary },
             { icon: 'time-outline', label: 'Activity', color: COLORS.textPrimary },
             { icon: 'qr-code-outline', label: 'QR Code', color: COLORS.textPrimary },

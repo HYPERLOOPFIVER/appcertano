@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   collection,
@@ -136,47 +135,40 @@ export default function Notifications() {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const renderNotification = ({ item, index }) => {
+  const renderNotification = ({ item }) => {
     const sender = usersData[item.senderId] || {};
     const config = NOTIFICATION_CONFIG[item.type] || NOTIFICATION_CONFIG.like;
     
     return (
-      <MotiView
-        from={{ opacity: 0, translateX: -30 }}
-        animate={{ opacity: 1, translateX: 0 }}
-        transition={{ type: 'timing', duration: 400, delay: index * 60 }}
+      <TouchableOpacity
+        style={[styles.notificationItem, !item.read && styles.unreadItem]}
+        onPress={() => handlePress(item)}
       >
-        <TouchableOpacity
-          style={[styles.notificationItem, !item.read && styles.unreadItem]}
-          onPress={() => handlePress(item)}
-          testID={`notification-${item.id}`}
-        >
-          <TouchableOpacity onPress={() => router.push(`/profile/${item.senderId}`)}>
-            {sender.profilePic ? (
-              <Image source={{ uri: sender.profilePic }} style={styles.avatar} />
-            ) : (
-              <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{(sender.name || 'U')[0].toUpperCase()}</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
-          
-          <View style={styles.notificationContent}>
-            <Text style={styles.notificationText}>
-              <Text style={styles.senderName}>{sender.name || 'Someone'}</Text>
-              {' '}{config.text}
-            </Text>
-            {item.text && (
-              <Text style={styles.previewText} numberOfLines={1}>"{item.text}"</Text>
-            )}
-            <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
-          </View>
-          
-          <View style={[styles.typeIcon, { backgroundColor: `${config.color}20` }]}>
-            <Ionicons name={config.icon} size={18} color={config.color} />
-          </View>
+        <TouchableOpacity onPress={() => router.push(`/profile/${item.senderId}`)}>
+          {sender.profilePic ? (
+            <Image source={{ uri: sender.profilePic }} style={styles.avatar} />
+          ) : (
+            <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>{(sender.name || 'U')[0].toUpperCase()}</Text>
+            </LinearGradient>
+          )}
         </TouchableOpacity>
-      </MotiView>
+        
+        <View style={styles.notificationContent}>
+          <Text style={styles.notificationText}>
+            <Text style={styles.senderName}>{sender.name || 'Someone'}</Text>
+            {' '}{config.text}
+          </Text>
+          {item.text && (
+            <Text style={styles.previewText} numberOfLines={1}>"{item.text}"</Text>
+          )}
+          <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
+        </View>
+        
+        <View style={[styles.typeIcon, { backgroundColor: `${config.color}20` }]}>
+          <Ionicons name={config.icon} size={18} color={config.color} />
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -185,19 +177,15 @@ export default function Notifications() {
       <StatusBar barStyle="dark-content" />
       
       {/* Header */}
-      <MotiView
-        from={{ opacity: 0, translateY: -20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="back-btn">
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
           <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.headerBtn} testID="settings-btn">
+        <TouchableOpacity style={styles.headerBtn}>
           <Ionicons name="options-outline" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-      </MotiView>
+      </View>
 
       {/* Notifications List */}
       {loading ? (
@@ -221,17 +209,13 @@ export default function Notifications() {
             />
           }
           ListEmptyComponent={
-            <MotiView
-              from={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              style={styles.emptyContainer}
-            >
+            <View style={styles.emptyContainer}>
               <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.emptyIcon}>
                 <Ionicons name="notifications" size={40} color={COLORS.white} />
               </LinearGradient>
               <Text style={styles.emptyTitle}>All Caught Up!</Text>
               <Text style={styles.emptyText}>You'll see notifications for likes, comments, and follows here</Text>
-            </MotiView>
+            </View>
           }
         />
       )}

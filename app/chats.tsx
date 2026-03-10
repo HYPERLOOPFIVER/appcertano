@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { MotiView, MotiText } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   collection,
@@ -100,16 +100,11 @@ export default function Chats() {
     const otherUser = usersData[item.otherUserId] || {};
     
     return (
-      <MotiView
-        from={{ opacity: 0, translateX: -30 }}
-        animate={{ opacity: 1, translateX: 0 }}
-        transition={{ type: 'timing', duration: 400, delay: index * 80 }}
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => router.push(`/chat/${item.otherUserId}`)}
+        testID={`chat-${item.otherUserId}`}
       >
-        <TouchableOpacity
-          style={styles.chatItem}
-          onPress={() => router.push(`/chat/${item.otherUserId}`)}
-          testID={`chat-${item.otherUserId}`}
-        >
           <View style={styles.avatarContainer}>
             {otherUser.profilePic ? (
               <Image source={{ uri: otherUser.profilePic }} style={styles.avatar} />
@@ -144,11 +139,7 @@ export default function Chats() {
       <StatusBar barStyle="dark-content" />
       
       {/* Header */}
-      <MotiView
-        from={{ opacity: 0, translateY: -20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="back-btn">
           <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
@@ -156,20 +147,15 @@ export default function Chats() {
         <TouchableOpacity style={styles.headerBtn} testID="new-chat-btn">
           <Ionicons name="create-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>
-      </MotiView>
+      </View>
 
       {/* Search Bar */}
-      <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 200 }}
-        style={styles.searchContainer}
-      >
+      <View style={styles.searchContainer}>
         <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/usersearch')}>
           <Ionicons name="search" size={20} color={COLORS.textTertiary} />
           <Text style={styles.searchPlaceholder}>Search messages...</Text>
         </TouchableOpacity>
-      </MotiView>
+      </View>
 
       {/* Chat List */}
       {loading ? (
@@ -185,11 +171,7 @@ export default function Chats() {
           contentContainerStyle={styles.chatsList}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <MotiView
-              from={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              style={styles.emptyContainer}
-            >
+            <View style={styles.emptyContainer}>
               <LinearGradient colors={['#FF4D4D', '#F50057']} style={styles.emptyIcon}>
                 <Ionicons name="chatbubbles" size={40} color={COLORS.white} />
               </LinearGradient>
@@ -200,7 +182,7 @@ export default function Chats() {
                   <Text style={styles.emptyButtonText}>Find People</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            </MotiView>
+            </View>
           }
         />
       )}
