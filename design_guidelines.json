@@ -1,0 +1,198 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Certano",
+      "tagline": "India's First Social Media Platform",
+      "vibe": "Unapologetically Indian, Futuristically Gen-Z",
+      "values": ["Vibrant", "Expressive", "Community", "Desi-Cool"]
+    },
+    "colors": {
+      "primary": {
+        "main": "#F50057",
+        "gradient_start": "#FF4D4D",
+        "gradient_end": "#F50057",
+        "text_contrast": "#FFFFFF"
+      },
+      "secondary": {
+        "main": "#6366F1",
+        "accent": "#818CF8",
+        "surface": "#EEF2FF"
+      },
+      "background": {
+        "default": "#FAFAFA",
+        "paper": "#FFFFFF",
+        "subtle": "#F3F4F6"
+      },
+      "text": {
+        "primary": "#1F2937",
+        "secondary": "#6B7280",
+        "tertiary": "#9CA3AF",
+        "disabled": "#D1D5DB"
+      },
+      "status": {
+        "success": "#10B981",
+        "error": "#EF4444",
+        "warning": "#F59E0B",
+        "info": "#3B82F6"
+      },
+      "gradients": {
+        "brand": ["#FF4D4D", "#F50057"],
+        "story_ring": ["#F59E0B", "#F50057", "#C026D3"],
+        "glass": "rgba(255, 255, 255, 0.8)"
+      }
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Outfit-Bold",
+        "body": "Jakarta-Medium",
+        "system_fallback": "System"
+      },
+      "scale": {
+        "xs": 12,
+        "sm": 14,
+        "base": 16,
+        "lg": 18,
+        "xl": 20,
+        "2xl": 24,
+        "3xl": 30,
+        "4xl": 36,
+        "5xl": 48
+      },
+      "weights": {
+        "regular": "400",
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700"
+      }
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 16,
+      "lg": 24,
+      "xl": 32,
+      "2xl": 40,
+      "3xl": 64
+    },
+    "radius": {
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "2xl": 32,
+      "full": 9999
+    },
+    "shadows": {
+      "sm": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 1 },
+        "shadowOpacity": 0.05,
+        "shadowRadius": 2,
+        "elevation": 2
+      },
+      "md": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.1,
+        "shadowRadius": 6,
+        "elevation": 4
+      },
+      "lg": {
+        "shadowColor": "#F50057",
+        "shadowOffset": { "width": 0, "height": 10 },
+        "shadowOpacity": 0.15,
+        "shadowRadius": 20,
+        "elevation": 10
+      }
+    }
+  },
+  "layout_strategies": {
+    "general": {
+      "container": "flex-1 bg-gray-50",
+      "safe_area": "bg-white",
+      "bottom_tab": "absolute bottom-5 left-5 right-5 h-16 bg-white/90 rounded-full shadow-lg flex-row items-center justify-around border border-white/20 blur-md"
+    },
+    "cards": {
+      "post": "bg-white rounded-3xl mb-6 shadow-sm overflow-hidden border border-gray-100",
+      "story": "w-20 h-20 rounded-full border-2 border-primary-500 p-1"
+    },
+    "navigation": {
+      "header": "flex-row justify-between items-center px-6 py-4 bg-white/80 blur-sm z-10",
+      "header_title": "text-2xl font-bold text-gray-900"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary-500 py-4 px-8 rounded-full shadow-lg active:scale-95 transition-all",
+      "secondary": "bg-white border border-gray-200 py-4 px-8 rounded-full active:bg-gray-50",
+      "ghost": "bg-transparent py-2 px-4"
+    },
+    "inputs": {
+      "default": "bg-gray-50 border border-gray-200 rounded-2xl px-6 py-4 text-gray-900 focus:border-primary-500 focus:bg-white"
+    },
+    "modals": {
+      "bottom_sheet": "bg-white rounded-t-[40px] p-8 shadow-2xl"
+    }
+  },
+  "assets": {
+    "images": {
+      "avatars": [
+        "https://images.unsplash.com/photo-1761125064798-530c13c32b6d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB5b3VuZyUyMHBlb3BsZSUyMGxpZmVzdHlsZSUyMGhhcHB5fGVufDB8fHx8MTc3MzEzNDQ4N3ww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1578552398878-37247ca9726a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjB5b3VuZyUyMHBlb3BsZSUyMGxpZmVzdHlsZSUyMGhhcHB5fGVufDB8fHx8MTc3MzEzNDQ4N3ww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1674905758328-f2384454f20c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjB5b3VuZyUyMHBlb3BsZSUyMGxpZmVzdHlsZSUyMGhhcHB5fGVufDB8fHx8MTc3MzEzNDQ4N3ww&ixlib=rb-4.1.0&q=85"
+      ],
+      "posts": [
+        "https://images.pexels.com/photos/28257150/pexels-photo-28257150.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "https://images.pexels.com/photos/13759774/pexels-photo-13759774.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "https://images.unsplash.com/photo-1759430708780-d7cea0cc474e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHw0fHxpbmRpYW4lMjBzdHJlZXQlMjBmb29kJTIwYWVzdGhldGljfGVufDB8fHx8MTc3MzEzNDQ4OXww&ixlib=rb-4.1.0&q=85"
+      ],
+      "backgrounds": [
+        "https://images.unsplash.com/photo-1767482712541-d104b3826d3d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHZpYnJhbnQlMjAzZCUyMHNoYXBlc3xlbnwwfHx8fDE3NzMxMzQ0OTB8MA&ixlib=rb-4.1.0&q=85"
+      ]
+    },
+    "icons": {
+      "library": "Lucide React Native",
+      "style": "Stroke width 2, rounded caps",
+      "active_color": "#F50057",
+      "inactive_color": "#9CA3AF"
+    }
+  },
+  "animation_guidelines": {
+    "library": "Moti",
+    "transitions": {
+      "page_load": {
+        "from": { "opacity": 0, "translateY": 20 },
+        "animate": { "opacity": 1, "translateY": 0 },
+        "transition": { "type": "timing", "duration": 500 }
+      },
+      "modal_slide": {
+        "from": { "translateY": 300, "opacity": 0 },
+        "animate": { "translateY": 0, "opacity": 1 },
+        "transition": { "type": "spring", "damping": 15 }
+      },
+      "button_press": {
+        "scale": 0.96
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "REBUILD STRATEGY: Start with the Navigation (Tabs) and Header, then move to Feed, then Detail screens.",
+    "COLOR USAGE: Use the Primary Pink (#F50057) sparingly for CTAs and active states. Do not overuse it.",
+    "GRADIENTS: Use the 'Brand Gradient' for the Create Button and Story Rings only.",
+    "ROUNDNESS: Everything should feel organic. Use high border-radius (20px+).",
+    "MODALS: Replace standard RN Modals with 'Bottom Sheet' style animated views using Moti.",
+    "DATA-TESTID: Ensure every TouchableOpacity and TextInput has a unique testID.",
+    "PERFORMANCE: Use FlatList for feeds. Optimize images using cache policies if possible.",
+    "ICONS: Use Lucide Icons. Import from 'lucide-react-native'.",
+    "HEADER: Custom Header component. Do not use default Expo Router header if possible, or style it heavily to match.",
+    "SPLASH: Use the 'backgrounds' image with a pulsing logo animation."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not use gradients for dark colors.",
+    "Avoid generic centered layouts. Use asymmetry.",
+    "Create depth with shadows and z-index.",
+    "Use 2-3x more spacing than typical.",
+    "Every interaction needs micro-animations (Moti).",
+    "All interactive elements MUST include data-testid."
+  ]
+}
