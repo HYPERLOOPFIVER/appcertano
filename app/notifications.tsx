@@ -9,9 +9,12 @@ import {
   ActivityIndicator,
   SafeAreaView,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   collection,
   query,
@@ -25,27 +28,27 @@ import {
 import { auth, db } from '../firebase';
 
 const COLORS = {
-  primary: '#006D77',
-  primaryLight: '#83C5BE',
-  background: '#EDF6F9',
+  primary: '#F50057',
+  secondary: '#6366F1',
+  background: '#FAFAFA',
   surface: '#FFFFFF',
-  textPrimary: '#006D77',
-  textSecondary: '#83C5BE',
-  textMuted: '#B0C4C7',
-  border: '#E9F5F6',
+  surfaceLight: '#F3F4F6',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
   white: '#FFFFFF',
-  unread: '#E8F5F6',
+  unread: '#FFF0F3',
 };
 
-const NOTIFICATION_TYPES = {
-  like: { icon: 'heart', color: '#FF4757', text: 'liked your post' },
-  comment: { icon: 'chatbubble', color: '#006D77', text: 'commented on your post' },
-  follow: { icon: 'person-add', color: '#2E86AB', text: 'started following you' },
-  mention: { icon: 'at', color: '#F4A261', text: 'mentioned you' },
-  reply: { icon: 'return-down-forward', color: '#83C5BE', text: 'replied to your comment' },
+const NOTIFICATION_CONFIG = {
+  like: { icon: 'heart', color: '#F50057', text: 'liked your post' },
+  comment: { icon: 'chatbubble', color: '#6366F1', text: 'commented on your post' },
+  follow: { icon: 'person-add', color: '#10B981', text: 'started following you' },
+  mention: { icon: 'at', color: '#F59E0B', text: 'mentioned you' },
+  reply: { icon: 'return-down-forward', color: '#3B82F6', text: 'replied to your comment' },
 };
 
-export default function NotificationsScreen() {
+export default function Notifications() {
   const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,12 +68,11 @@ export default function NotificationsScreen() {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const notificationsData = [];
+      const data = [];
       
       for (const notifDoc of snapshot.docs) {
         const notification = { id: notifDoc.id, ...notifDoc.data() };
         
-        // Fetch sender's data if not cached
         if (notification.senderId && !usersData[notification.senderId]) {
           const userDoc = await getDoc(doc(db, 'users', notification.senderId));
           if (userDoc.exists()) {
@@ -81,10 +83,10 @@ export default function NotificationsScreen() {
           }
         }
         
-        notificationsData.push(notification);
+        data.push(notification);
       }
       
-      setNotifications(notificationsData);
+      setNotifications(data);
       setLoading(false);
       setRefreshing(false);
     });
@@ -94,141 +96,100 @@ export default function NotificationsScreen() {
 
   const markAsRead = async (notificationId) => {
     try {
-      await updateDoc(doc(db, 'notifications', notificationId), {
-        read: true,
-      });
+      await updateDoc(doc(db, 'notifications', notificationId), { read: true });
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Error marking as read:', error);
     }
   };
 
-  const handleNotificationPress = (notification) => {
+  const handlePress = (notification) => {
     markAsRead(notification.id);
     
     switch (notification.type) {
       case 'like':
       case 'comment':
-        if (notification.postId) {
-          router.push(`/post/${notification.postId}`);
-        }
+        if (notification.postId) router.push(`/post/${notification.postId}`);
         break;
       case 'follow':
-        if (notification.senderId) {
-          router.push(`/profile/${notification.senderId}`);
-        }
-        break;
-      default:
+        if (notification.senderId) router.push(`/profile/${notification.senderId}`);
         break;
     }
   };
 
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    const date = timestamp.toDate?.() || new Date(timestamp);
+    const diff = (Date.now() - date.getTime()) / 1000;
     
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`;
-    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-  };
-
-  const renderNotificationItem = ({ item }) => {
+  const renderNotification = ({ item, index }) => {
     const sender = usersData[item.senderId] || {};
-    const notifType = NOTIFICATION_TYPES[item.type] || NOTIFICATION_TYPES.like;
+    const config = NOTIFICATION_CONFIG[item.type] || NOTIFICATION_CONFIG.like;
     
     return (
-      <TouchableOpacity
-        style={[styles.notificationItem, !item.read && styles.unreadNotification]}
-        onPress={() => handleNotificationPress(item)}
+      <MotiView
+        from={{ opacity: 0, translateX: -30 }}
+        animate={{ opacity: 1, translateX: 0 }}
+        transition={{ type: 'timing', duration: 400, delay: index * 60 }}
       >
-        {/* User Avatar */}
-        <TouchableOpacity onPress={() => router.push(`/profile/${item.senderId}`)}>
-          {sender.profilePic ? (
-            <Image source={{ uri: sender.profilePic }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>
-                {(sender.name || 'U').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        
-        {/* Notification Content */}
-        <View style={styles.notificationContent}>
-          <Text style={styles.notificationText}>
-            <Text style={styles.senderName}>{sender.name || 'Someone'}</Text>
-            {' '}{notifType.text}
-          </Text>
-          {item.text && (
-            <Text style={styles.previewText} numberOfLines={1}>
-              "{item.text}"
+        <TouchableOpacity
+          style={[styles.notificationItem, !item.read && styles.unreadItem]}
+          onPress={() => handlePress(item)}
+          testID={`notification-${item.id}`}
+        >
+          <TouchableOpacity onPress={() => router.push(`/profile/${item.senderId}`)}>
+            {sender.profilePic ? (
+              <Image source={{ uri: sender.profilePic }} style={styles.avatar} />
+            ) : (
+              <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{(sender.name || 'U')[0].toUpperCase()}</Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+          
+          <View style={styles.notificationContent}>
+            <Text style={styles.notificationText}>
+              <Text style={styles.senderName}>{sender.name || 'Someone'}</Text>
+              {' '}{config.text}
             </Text>
-          )}
-          <Text style={styles.notificationTime}>{formatTime(item.createdAt)}</Text>
-        </View>
-        
-        {/* Notification Type Icon */}
-        <View style={[styles.typeIcon, { backgroundColor: `${notifType.color}20` }]}>
-          <Ionicons name={notifType.icon} size={16} color={notifType.color} />
-        </View>
-        
-        {/* Unread Indicator */}
-        {!item.read && <View style={styles.unreadDot} />}
-      </TouchableOpacity>
+            {item.text && (
+              <Text style={styles.previewText} numberOfLines={1}>"{item.text}"</Text>
+            )}
+            <Text style={styles.timeText}>{formatTime(item.createdAt)}</Text>
+          </View>
+          
+          <View style={[styles.typeIcon, { backgroundColor: `${config.color}20` }]}>
+            <Ionicons name={config.icon} size={18} color={config.color} />
+          </View>
+        </TouchableOpacity>
+      </MotiView>
     );
   };
 
-  const renderSectionHeader = (title) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-    </View>
-  );
-
-  // Group notifications by time
-  const groupNotifications = () => {
-    const today = [];
-    const thisWeek = [];
-    const earlier = [];
-    const now = new Date();
-    
-    notifications.forEach((notif) => {
-      const date = notif.createdAt?.toDate ? notif.createdAt.toDate() : new Date(notif.createdAt);
-      const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (diffInDays === 0) {
-        today.push(notif);
-      } else if (diffInDays < 7) {
-        thisWeek.push(notif);
-      } else {
-        earlier.push(notif);
-      }
-    });
-    
-    return { today, thisWeek, earlier };
-  };
-
-  const { today, thisWeek, earlier } = groupNotifications();
-
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+      <MotiView
+        from={{ opacity: 0, translateY: -20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        style={styles.header}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="back-btn">
+          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="settings-outline" size={24} color={COLORS.primary} />
+        <TouchableOpacity style={styles.headerBtn} testID="settings-btn">
+          <Ionicons name="options-outline" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-      </View>
+      </MotiView>
 
       {/* Notifications List */}
       {loading ? (
@@ -236,33 +197,33 @@ export default function NotificationsScreen() {
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
-      ) : notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-outline" size={64} color={COLORS.textMuted} />
-          <Text style={styles.emptyText}>No notifications yet</Text>
-          <Text style={styles.emptySubtext}>
-            When someone interacts with your content, you'll see it here
-          </Text>
-        </View>
       ) : (
         <FlatList
           data={notifications}
-          renderItem={renderNotificationItem}
+          renderItem={renderNotification}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.notificationsList}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={() => setRefreshing(true)}
               colors={[COLORS.primary]}
               tintColor={COLORS.primary}
             />
           }
-          ListHeaderComponent={
-            <>
-              {today.length > 0 && renderSectionHeader('Today')}
-            </>
+          ListEmptyComponent={
+            <MotiView
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={styles.emptyContainer}
+            >
+              <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.emptyIcon}>
+                <Ionicons name="notifications" size={40} color={COLORS.white} />
+              </LinearGradient>
+              <Text style={styles.emptyTitle}>All Caught Up!</Text>
+              <Text style={styles.emptyText}>You'll see notifications for likes, comments, and follows here</Text>
+            </MotiView>
           }
         />
       )}
@@ -283,18 +244,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.surfaceLight,
   },
-  backBtn: {
+  headerBtn: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.textPrimary,
-  },
-  headerBtn: {
-    padding: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -302,64 +260,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
     color: COLORS.textSecondary,
   },
   notificationsList: {
     padding: 16,
   },
-  sectionHeader: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  unreadNotification: {
+  unreadItem: {
     backgroundColor: COLORS.unread,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: COLORS.white,
   },
   notificationContent: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    marginLeft: 14,
+    marginRight: 10,
   },
   notificationText: {
     fontSize: 14,
@@ -367,7 +313,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   senderName: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   previewText: {
     fontSize: 13,
@@ -375,43 +321,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: 'italic',
   },
-  notificationTime: {
+  timeText: {
     fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
+    color: COLORS.textTertiary,
+    marginTop: 6,
   },
   typeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  unreadDot: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.primary,
   },
   emptyContainer: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 8,
+    fontSize: 15,
+    color: COLORS.textTertiary,
     textAlign: 'center',
+    paddingHorizontal: 40,
   },
 });

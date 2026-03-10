@@ -12,10 +12,13 @@ import {
   Dimensions,
   Alert,
   TextInput,
-  Modal
+  Modal,
+  StatusBar,
 } from 'react-native';
-import { Ionicons, Feather, FontAwesome, AntDesign, Entypo, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { MotiView, MotiText, AnimatePresence } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { 
   collection, 
   getDocs, 
@@ -27,42 +30,38 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import { auth, db, storage } from '../firebase';
+import { auth, db } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
 const COLORS = {
-  primary: '#006D77',
-  primaryLight: '#83C5BE',
-  primaryDark: '#264653',
-  background: '#EDF6F9',
+  primary: '#F50057',
+  primaryLight: '#FF4D4D',
+  secondary: '#6366F1',
+  secondaryLight: '#818CF8',
+  background: '#FAFAFA',
   surface: '#FFFFFF',
-  accent: '#E9C46A',
-  secondary: '#F4A261',
-  error: '#E76F51',
-  text: '#2A9D8F',
-  textPrimary: '#006D77',
-  textSecondary: '#83C5BE',
-  textMuted: '#B0C4C7',
-  border: '#FFDDD2',
-  success: '#2A9D8F',
-  warning: '#F4A261',
+  surfaceLight: '#F3F4F6',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  success: '#10B981',
+  error: '#EF4444',
   white: '#FFFFFF',
-  light: '#F8FDFF',
 };
 
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dfzmg1jtd/upload';
 const UPLOAD_PRESET = 'Prepop';
 
-export default function CertanoProfile() {
+export default function Profile() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('posts');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
@@ -88,7 +87,6 @@ export default function CertanoProfile() {
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -96,12 +94,8 @@ export default function CertanoProfile() {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId));
       if (userDoc.exists()) {
-        const data = {
-          id: userDoc.id,
-          ...userDoc.data()
-        };
+        const data = { id: userDoc.id, ...userDoc.data() };
         setUserData(data);
-        
         setEditForm({
           displayName: data.displayName || data.name || '',
           bio: data.bio || '',
@@ -111,31 +105,18 @@ export default function CertanoProfile() {
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
-      Alert.alert('Error', 'Failed to load profile data');
     }
   };
 
   const fetchUserPosts = async (userId) => {
     try {
       const postsRef = collection(db, 'posts');
-      const q = query(
-        postsRef, 
-        where('uid', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
+      const q = query(postsRef, where('uid', '==', userId), orderBy('createdAt', 'desc'));
       
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const posts = [];
-        snapshot.forEach((doc) => {
-          posts.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
+      onSnapshot(q, (snapshot) => {
+        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setUserPosts(posts);
       });
-
-      return unsubscribe;
     } catch (error) {
       console.error("Error fetching user posts:", error);
     }
@@ -157,51 +138,6 @@ export default function CertanoProfile() {
 
   const handleImagePicker = async (type = 'profile') => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant camera roll permissions to upload images.');
-        return;
-      }
-
-      Alert.alert(
-        'Select Image',
-        'Choose an option',
-        [
-          { text: 'Camera', onPress: () => openCamera(type) },
-          { text: 'Gallery', onPress: () => openGallery(type) },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
-    } catch (error) {
-      console.error('Error requesting permissions:', error);
-    }
-  };
-
-  const openCamera = async (type) => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant camera permissions.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: type === 'profile' ? [1, 1] : [16, 9],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        uploadImage(result.assets[0].uri, type);
-      }
-    } catch (error) {
-      console.error('Error opening camera:', error);
-    }
-  };
-
-  const openGallery = async (type) => {
-    try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -213,50 +149,29 @@ export default function CertanoProfile() {
         uploadImage(result.assets[0].uri, type);
       }
     } catch (error) {
-      console.error('Error opening gallery:', error);
+      console.error('Error picking image:', error);
     }
   };
 
   const uploadImage = async (uri, type) => {
     try {
       setUploading(true);
-
-      // Upload to Cloudinary
       const formData = new FormData();
-      formData.append('file', {
-        uri,
-        type: 'image/jpeg',
-        name: `${type}_${user.uid}.jpg`,
-      } as any);
+      formData.append('file', { uri, type: 'image/jpeg', name: `${type}_${user.uid}.jpg` } as any);
       formData.append('upload_preset', UPLOAD_PRESET);
 
-      const response = await fetch(CLOUDINARY_URL, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch(CLOUDINARY_URL, { method: 'POST', body: formData });
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Upload failed');
-      }
+      
+      if (!response.ok) throw new Error(data.error?.message || 'Upload failed');
 
-      const downloadURL = data.secure_url;
-
-      // Update user document
       const updateField = type === 'profile' ? 'profilePic' : 'coverImage';
-      await updateDoc(doc(db, 'users', user.uid), {
-        [updateField]: downloadURL
-      });
-
-      setUserData(prev => ({
-        ...prev,
-        [updateField]: downloadURL
-      }));
-
-      Alert.alert('Success', `${type === 'profile' ? 'Profile' : 'Cover'} photo updated successfully!`);
+      await updateDoc(doc(db, 'users', user.uid), { [updateField]: data.secure_url });
+      setUserData(prev => ({ ...prev, [updateField]: data.secure_url }));
+      
+      Alert.alert('Success! ✨', `${type === 'profile' ? 'Profile' : 'Cover'} photo updated!`);
     } catch (error) {
-      console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image. Please try again.');
+      Alert.alert('Error', 'Failed to upload image');
     } finally {
       setUploading(false);
     }
@@ -265,7 +180,6 @@ export default function CertanoProfile() {
   const handleSaveProfile = async () => {
     try {
       setUploading(true);
-
       await updateDoc(doc(db, 'users', user.uid), {
         displayName: editForm.displayName,
         name: editForm.displayName,
@@ -274,234 +188,202 @@ export default function CertanoProfile() {
         location: editForm.location,
         updatedAt: new Date()
       });
-
-      setUserData(prev => ({
-        ...prev,
-        displayName: editForm.displayName,
-        name: editForm.displayName,
-        bio: editForm.bio,
-        website: editForm.website,
-        location: editForm.location
-      }));
-
+      setUserData(prev => ({ ...prev, ...editForm, name: editForm.displayName }));
       setEditModalVisible(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Updated! ✨', 'Your profile has been saved');
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      Alert.alert('Error', 'Failed to update profile');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              router.replace('/login');
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to sign out');
-            }
-          }
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut(auth);
+          router.replace('/login');
         }
-      ]
-    );
+      }
+    ]);
   };
 
+  const StatItem = ({ label, value, delay }) => (
+    <MotiView
+      from={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ delay }}
+      style={styles.statItem}
+    >
+      <Text style={styles.statNumber}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </MotiView>
+  );
+
   const renderPostItem = ({ item, index }) => {
-    const imageSize = (width - 48) / 3;
-    
+    const size = (width - 48) / 3;
     return (
-      <TouchableOpacity 
-        style={[styles.postItem, { width: imageSize, height: imageSize }]}
-        onPress={() => router.push(`/post/${item.id}`)}
+      <MotiView
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: index * 50 }}
       >
-        <Image 
-          source={{ uri: item.image || 'https://picsum.photos/300/300?random=' + index }} 
-          style={styles.postImage} 
-        />
-        <View style={styles.postOverlay}>
-          <View style={styles.postStats}>
+        <TouchableOpacity 
+          style={[styles.postItem, { width: size, height: size }]}
+          onPress={() => router.push(`/post/${item.id}`)}
+          testID={`post-${item.id}`}
+        >
+          <Image source={{ uri: item.image }} style={styles.postImage} />
+          <View style={styles.postOverlay}>
             <View style={styles.postStat}>
-              <AntDesign name="heart" size={12} color={COLORS.white} />
+              <Ionicons name="heart" size={14} color={COLORS.white} />
               <Text style={styles.postStatText}>{item.likes?.length || 0}</Text>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </MotiView>
     );
   };
 
-  const renderEditModal = () => (
-    <Modal
-      visible={editModalVisible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
+  // Edit Profile Modal
+  const EditModal = () => (
+    <Modal visible={editModalVisible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-            <AntDesign name="close" size={24} color={COLORS.textMuted} />
+          <TouchableOpacity onPress={() => setEditModalVisible(false)} testID="close-edit-modal">
+            <Ionicons name="close" size={28} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Edit Profile</Text>
-          <TouchableOpacity onPress={handleSaveProfile} disabled={uploading}>
-            <Feather name="check" size={24} color={uploading ? COLORS.textMuted : COLORS.primary} />
+          <TouchableOpacity onPress={handleSaveProfile} disabled={uploading} testID="save-profile-btn">
+            <Text style={[styles.saveText, uploading && { opacity: 0.5 }]}>Save</Text>
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.modalContent}>
-          <View style={styles.editImageSection}>
-            <TouchableOpacity 
-              style={styles.editProfileImage}
-              onPress={() => handleImagePicker('profile')}
-              disabled={uploading}
-            >
+        <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          {/* Profile Picture */}
+          <MotiView
+            from={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            style={styles.editAvatarSection}
+          >
+            <TouchableOpacity onPress={() => handleImagePicker('profile')} testID="edit-profile-pic">
               {userData?.profilePic ? (
-                <Image source={{ uri: userData.profilePic }} style={styles.editProfileImageContent} />
+                <Image source={{ uri: userData.profilePic }} style={styles.editAvatar} />
               ) : (
-                <View style={styles.editProfileImagePlaceholder}>
-                  <Text style={styles.editProfileImageText}>
-                    {(userData?.name || 'U').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.editAvatarPlaceholder}>
+                  <Text style={styles.editAvatarText}>{(userData?.name || 'U')[0].toUpperCase()}</Text>
+                </LinearGradient>
               )}
-              <View style={styles.editImageOverlay}>
+              <View style={styles.editAvatarOverlay}>
                 <Ionicons name="camera" size={20} color={COLORS.white} />
               </View>
             </TouchableOpacity>
-            <Text style={styles.editImageLabel}>Tap to change profile photo</Text>
-          </View>
+            <Text style={styles.editAvatarLabel}>Change Photo</Text>
+          </MotiView>
 
-          <View style={styles.formContainer}>
-            <View style={styles.formField}>
-              <Text style={styles.formLabel}>Display Name</Text>
-              <TextInput
-                style={styles.formInput}
-                value={editForm.displayName}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, displayName: text }))}
-                placeholder="Enter your display name"
-                placeholderTextColor={COLORS.textMuted}
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.formLabel}>Bio</Text>
-              <TextInput
-                style={[styles.formInput, styles.bioInput]}
-                value={editForm.bio}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, bio: text }))}
-                placeholder="Tell us about yourself..."
-                placeholderTextColor={COLORS.textMuted}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.formLabel}>Website</Text>
-              <TextInput
-                style={styles.formInput}
-                value={editForm.website}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, website: text }))}
-                placeholder="https://yourwebsite.com"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="url"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.formLabel}>Location</Text>
-              <TextInput
-                style={styles.formInput}
-                value={editForm.location}
-                onChangeText={(text) => setEditForm(prev => ({ ...prev, location: text }))}
-                placeholder="Your location"
-                placeholderTextColor={COLORS.textMuted}
-              />
-            </View>
-          </View>
+          {/* Form Fields */}
+          {[
+            { label: 'Name', value: editForm.displayName, key: 'displayName', icon: 'person-outline' },
+            { label: 'Bio', value: editForm.bio, key: 'bio', icon: 'document-text-outline', multiline: true },
+            { label: 'Website', value: editForm.website, key: 'website', icon: 'link-outline' },
+            { label: 'Location', value: editForm.location, key: 'location', icon: 'location-outline' },
+          ].map((field, index) => (
+            <MotiView
+              key={field.key}
+              from={{ opacity: 0, translateX: -20 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              transition={{ delay: 200 + index * 100 }}
+              style={styles.formField}
+            >
+              <Text style={styles.formLabel}>{field.label}</Text>
+              <View style={styles.formInputContainer}>
+                <Ionicons name={field.icon} size={20} color={COLORS.textTertiary} />
+                <TextInput
+                  style={[styles.formInput, field.multiline && styles.formInputMultiline]}
+                  value={field.value}
+                  onChangeText={(text) => setEditForm(prev => ({ ...prev, [field.key]: text }))}
+                  placeholder={`Enter your ${field.label.toLowerCase()}`}
+                  placeholderTextColor={COLORS.textTertiary}
+                  multiline={field.multiline}
+                  testID={`edit-${field.key}-input`}
+                />
+              </View>
+            </MotiView>
+          ))}
         </ScrollView>
 
         {uploading && (
           <View style={styles.uploadingOverlay}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.uploadingText}>Updating...</Text>
+            <Text style={styles.uploadingText}>Saving...</Text>
           </View>
         )}
       </SafeAreaView>
     </Modal>
   );
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'posts':
-        return userPosts.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Feather name="grid" size={48} color={COLORS.textMuted} />
-            <Text style={styles.emptyStateTitle}>No Posts Yet</Text>
-            <Text style={styles.emptyStateText}>Your posts will appear here</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={userPosts}
-            renderItem={renderPostItem}
-            keyExtractor={item => item.id}
-            numColumns={3}
-            scrollEnabled={false}
-            contentContainerStyle={styles.postsGrid}
-            columnWrapperStyle={styles.postsRow}
-          />
-        );
-      case 'saved':
-        return (
-          <View style={styles.emptyState}>
-            <FontAwesome name="bookmark-o" size={48} color={COLORS.textMuted} />
-            <Text style={styles.emptyStateTitle}>No Saved Posts</Text>
-            <Text style={styles.emptyStateText}>Posts you save will appear here</Text>
-          </View>
-        );
-      case 'tagged':
-        return (
-          <View style={styles.emptyState}>
-            <Feather name="tag" size={48} color={COLORS.textMuted} />
-            <Text style={styles.emptyStateTitle}>No Tagged Posts</Text>
-            <Text style={styles.emptyStateText}>Posts you're tagged in will appear here</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
+  // Settings Modal
+  const SettingsModal = () => (
+    <Modal visible={settingsModalVisible} animationType="slide" transparent>
+      <TouchableOpacity 
+        style={styles.settingsOverlay} 
+        activeOpacity={1} 
+        onPress={() => setSettingsModalVisible(false)}
+      >
+        <MotiView
+          from={{ translateY: 300 }}
+          animate={{ translateY: 0 }}
+          transition={{ type: 'spring', damping: 15 }}
+          style={styles.settingsSheet}
+        >
+          <View style={styles.settingsHandle} />
+          
+          {[
+            { icon: 'settings-outline', label: 'Settings', color: COLORS.textPrimary },
+            { icon: 'bookmark-outline', label: 'Saved Posts', color: COLORS.textPrimary },
+            { icon: 'time-outline', label: 'Activity', color: COLORS.textPrimary },
+            { icon: 'qr-code-outline', label: 'QR Code', color: COLORS.textPrimary },
+            { icon: 'log-out-outline', label: 'Sign Out', color: COLORS.error, onPress: handleSignOut },
+          ].map((item, index) => (
+            <MotiView
+              key={item.label}
+              from={{ opacity: 0, translateX: -20 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              transition={{ delay: index * 50 }}
+            >
+              <TouchableOpacity
+                style={styles.settingsItem}
+                onPress={item.onPress || (() => {})}
+                testID={`settings-${item.label.toLowerCase().replace(' ', '-')}`}
+              >
+                <Ionicons name={item.icon} size={24} color={item.color} />
+                <Text style={[styles.settingsItemText, { color: item.color }]}>{item.label}</Text>
+              </TouchableOpacity>
+            </MotiView>
+          ))}
+        </MotiView>
+      </TouchableOpacity>
+    </Modal>
+  );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
       </View>
     );
   }
 
-  if (!user || !userData) {
+  if (!userData) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Please sign in to view your profile</Text>
-        <TouchableOpacity 
-          style={styles.signInButton}
-          onPress={() => router.replace('/login')}
-        >
-          <Text style={styles.signInButtonText}>Sign In</Text>
+        <Text style={styles.errorText}>Please sign in</Text>
+        <TouchableOpacity style={styles.signInBtn} onPress={() => router.replace('/login')}>
+          <Text style={styles.signInBtnText}>Sign In</Text>
         </TouchableOpacity>
       </View>
     );
@@ -509,134 +391,189 @@ export default function CertanoProfile() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{userData.displayName || userData.name || 'Profile'}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push('/create-story')}>
-            <Ionicons name="add-circle-outline" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setEditModalVisible(true)}>
-            <Feather name="edit-3" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={handleSignOut}>
-            <MaterialIcons name="logout" size={24} color={COLORS.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <MotiView
+        from={{ opacity: 0, translateY: -20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        style={styles.header}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} testID="back-btn">
+          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{userData.name || 'Profile'}</Text>
+        <TouchableOpacity onPress={() => setSettingsModalVisible(true)} style={styles.headerBtn} testID="settings-btn">
+          <Ionicons name="menu-outline" size={28} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+      </MotiView>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
-        <View style={styles.coverContainer}>
-          <Image 
-            source={{ uri: userData.coverImage || 'https://picsum.photos/800/300' }} 
-            style={styles.coverImage} 
-          />
-          <TouchableOpacity 
-            style={styles.changeCoverBtn}
-            onPress={() => handleImagePicker('cover')}
+        <TouchableOpacity onPress={() => handleImagePicker('cover')} testID="edit-cover-btn">
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={styles.coverContainer}
           >
-            <Ionicons name="camera" size={16} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileImageContainer}>
-            {userData.profilePic ? (
-              <Image source={{ uri: userData.profilePic }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Text style={styles.profileImageText}>
-                  {(userData.name || 'U').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <TouchableOpacity 
-              style={styles.editProfileImageBtn}
-              onPress={() => handleImagePicker('profile')}
-            >
+            <Image 
+              source={{ uri: userData.coverImage || 'https://images.unsplash.com/photo-1557683316-973673baf926?w=800' }} 
+              style={styles.coverImage} 
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.coverGradient}
+            />
+            <View style={styles.coverEditIcon}>
               <Ionicons name="camera" size={16} color={COLORS.white} />
-            </TouchableOpacity>
-          </View>
+            </View>
+          </MotiView>
+        </TouchableOpacity>
 
-          <View style={styles.profileInfo}>
-            <Text style={styles.displayName}>{userData.displayName || userData.name || 'User'}</Text>
-            <Text style={styles.username}>@{userData.username || user.email?.split('@')[0]}</Text>
-            
-            {userData.bio && <Text style={styles.bio}>{userData.bio}</Text>}
+        {/* Profile Info Card */}
+        <MotiView
+          from={{ opacity: 0, translateY: 30 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ delay: 200 }}
+          style={styles.profileCard}
+        >
+          {/* Avatar */}
+          <TouchableOpacity onPress={() => handleImagePicker('profile')} style={styles.avatarContainer} testID="edit-avatar-btn">
+            {userData.profilePic ? (
+              <Image source={{ uri: userData.profilePic }} style={styles.avatar} />
+            ) : (
+              <LinearGradient colors={['#FF4D4D', '#F50057']} style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{(userData.name || 'U')[0].toUpperCase()}</Text>
+              </LinearGradient>
+            )}
+            <View style={styles.avatarEditIcon}>
+              <Ionicons name="camera" size={14} color={COLORS.white} />
+            </View>
+          </TouchableOpacity>
 
-            <View style={styles.profileMeta}>
+          {/* Name & Bio */}
+          <MotiText
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 300 }}
+            style={styles.displayName}
+          >
+            {userData.name || 'User'}
+          </MotiText>
+          
+          <Text style={styles.username}>@{userData.username || user.email?.split('@')[0]}</Text>
+          
+          {userData.bio && <Text style={styles.bio}>{userData.bio}</Text>}
+
+          {/* Meta Info */}
+          {(userData.location || userData.website) && (
+            <View style={styles.metaContainer}>
               {userData.location && (
                 <View style={styles.metaItem}>
-                  <Entypo name="location-pin" size={14} color={COLORS.textSecondary} />
+                  <Ionicons name="location-outline" size={16} color={COLORS.textSecondary} />
                   <Text style={styles.metaText}>{userData.location}</Text>
                 </View>
               )}
               {userData.website && (
                 <View style={styles.metaItem}>
-                  <Feather name="link" size={14} color={COLORS.textSecondary} />
-                  <Text style={styles.metaLink}>{userData.website}</Text>
+                  <Ionicons name="link-outline" size={16} color={COLORS.secondary} />
+                  <Text style={[styles.metaText, { color: COLORS.secondary }]}>{userData.website}</Text>
                 </View>
               )}
             </View>
+          )}
 
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-              <TouchableOpacity style={styles.statItem}>
-                <Text style={styles.statNumber}>{userPosts.length}</Text>
-                <Text style={styles.statLabel}>Posts</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.statItem}>
-                <Text style={styles.statNumber}>{followers.length}</Text>
-                <Text style={styles.statLabel}>Followers</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.statItem}>
-                <Text style={styles.statNumber}>{following.length}</Text>
-                <Text style={styles.statLabel}>Following</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <StatItem label="Posts" value={userPosts.length} delay={400} />
+            <View style={styles.statDivider} />
+            <StatItem label="Followers" value={followers.length} delay={500} />
+            <View style={styles.statDivider} />
+            <StatItem label="Following" value={following.length} delay={600} />
           </View>
-        </View>
 
-        {/* Content Tabs */}
+          {/* Edit Button */}
+          <TouchableOpacity onPress={() => setEditModalVisible(true)} testID="edit-profile-btn">
+            <LinearGradient colors={['#FF4D4D', '#F50057']} style={styles.editButton}>
+              <Feather name="edit-3" size={18} color={COLORS.white} />
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* Tabs */}
         <View style={styles.tabsContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-            onPress={() => setActiveTab('posts')}
-          >
-            <Feather name="grid" size={20} color={activeTab === 'posts' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.tabText, activeTab === 'posts' && styles.activeTabText]}>Posts</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
-            onPress={() => setActiveTab('saved')}
-          >
-            <FontAwesome name="bookmark-o" size={20} color={activeTab === 'saved' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>Saved</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'tagged' && styles.activeTab]}
-            onPress={() => setActiveTab('tagged')}
-          >
-            <Feather name="tag" size={20} color={activeTab === 'tagged' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.tabText, activeTab === 'tagged' && styles.activeTabText]}>Tagged</Text>
-          </TouchableOpacity>
+          {[
+            { key: 'posts', icon: 'grid-outline' },
+            { key: 'saved', icon: 'bookmark-outline' },
+            { key: 'tagged', icon: 'pricetag-outline' },
+          ].map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+              onPress={() => setActiveTab(tab.key)}
+              testID={`tab-${tab.key}`}
+            >
+              <Ionicons 
+                name={tab.icon} 
+                size={24} 
+                color={activeTab === tab.key ? COLORS.primary : COLORS.textTertiary} 
+              />
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Tab Content */}
         <View style={styles.tabContent}>
-          {renderTabContent()}
+          {activeTab === 'posts' && (
+            userPosts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="camera-outline" size={64} color={COLORS.textTertiary} />
+                <Text style={styles.emptyTitle}>No Posts Yet</Text>
+                <Text style={styles.emptyText}>Share your first moment!</Text>
+                <TouchableOpacity onPress={() => router.push('/create-post')} testID="create-first-post-btn">
+                  <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.emptyButton}>
+                    <Ionicons name="add" size={20} color={COLORS.white} />
+                    <Text style={styles.emptyButtonText}>Create Post</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <FlatList
+                data={userPosts}
+                renderItem={renderPostItem}
+                keyExtractor={item => item.id}
+                numColumns={3}
+                scrollEnabled={false}
+                contentContainerStyle={styles.postsGrid}
+              />
+            )
+          )}
+          
+          {activeTab === 'saved' && (
+            <View style={styles.emptyState}>
+              <Ionicons name="bookmark-outline" size={64} color={COLORS.textTertiary} />
+              <Text style={styles.emptyTitle}>No Saved Posts</Text>
+              <Text style={styles.emptyText}>Save posts to view them here</Text>
+            </View>
+          )}
+          
+          {activeTab === 'tagged' && (
+            <View style={styles.emptyState}>
+              <Ionicons name="pricetag-outline" size={64} color={COLORS.textTertiary} />
+              <Text style={styles.emptyTitle}>No Tagged Posts</Text>
+              <Text style={styles.emptyText}>Posts you're tagged in will appear here</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Edit Modal */}
-      {renderEditModal()}
+      <EditModal />
+      <SettingsModal />
 
-      {/* Loading Overlay */}
       {uploading && (
         <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={COLORS.white} />
           <Text style={styles.uploadingText}>Uploading...</Text>
         </View>
       )}
@@ -655,35 +592,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
-    padding: 20,
   },
   errorText: {
     fontSize: 18,
     color: COLORS.textPrimary,
     marginBottom: 20,
-    textAlign: 'center',
   },
-  signInButton: {
+  signInBtn: {
     backgroundColor: COLORS.primary,
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingHorizontal: 32,
+    borderRadius: 25,
   },
-  signInButtonText: {
+  signInBtnText: {
     color: COLORS.white,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   header: {
     flexDirection: 'row',
@@ -692,23 +621,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  },
+  headerBtn: {
+    padding: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textPrimary,
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  headerBtn: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  scrollView: {
-    flex: 1,
   },
   coverContainer: {
     height: 200,
@@ -719,166 +639,175 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
-  changeCoverBtn: {
+  coverGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  coverEditIcon: {
     position: 'absolute',
     top: 16,
     right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 10,
     borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  profileSection: {
+  profileCard: {
     backgroundColor: COLORS.surface,
-    marginTop: -50,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 20,
-    paddingHorizontal: 16,
-  },
-  profileImageContainer: {
+    marginTop: -60,
+    marginHorizontal: 16,
+    borderRadius: 28,
+    padding: 24,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  avatarContainer: {
+    marginTop: -70,
     marginBottom: 16,
   },
-  profileImage: {
+  avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 4,
     borderColor: COLORS.surface,
   },
-  profileImagePlaceholder: {
+  avatarPlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
     borderColor: COLORS.surface,
   },
-  profileImageText: {
+  avatarText: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: COLORS.white,
   },
-  editProfileImageBtn: {
+  avatarEditIcon: {
     position: 'absolute',
     bottom: 0,
-    right: width / 2 - 62,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileInfo: {
-    alignItems: 'center',
+    right: 0,
+    backgroundColor: COLORS.secondary,
+    padding: 8,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: COLORS.surface,
   },
   displayName: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
   username: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    marginBottom: 12,
+    marginTop: 4,
   },
   bio: {
-    fontSize: 14,
-    color: COLORS.text,
+    fontSize: 15,
+    color: COLORS.textPrimary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 12,
+    marginTop: 12,
+    lineHeight: 22,
   },
-  profileMeta: {
-    alignItems: 'center',
-    marginBottom: 16,
+  metaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 12,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: 4,
   },
   metaText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    marginLeft: 6,
-  },
-  metaLink: {
-    fontSize: 14,
-    color: COLORS.primary,
-    marginLeft: 6,
-    fontWeight: '500',
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginTop: 24,
+    paddingHorizontal: 16,
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: COLORS.textPrimary,
-    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: COLORS.surfaceLight,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    marginTop: 24,
+    gap: 8,
+    shadowColor: '#F50057',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  editButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     backgroundColor: COLORS.surface,
+    marginTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,          
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    paddingVertical: 12,
+    borderTopColor: COLORS.surfaceLight,
   },
   tab: {
     flex: 1,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
   },
-  activeTab: {
+  tabActive: {
     borderBottomWidth: 2,
     borderBottomColor: COLORS.primary,
   },
-  tabText: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  activeTabText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
   tabContent: {
-    padding: 16,
+    backgroundColor: COLORS.surface,
+    minHeight: 300,
+    paddingBottom: 100,
   },
   postsGrid: {
-    marginHorizontal: -8,
-  },
-  postsRow: {
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    padding: 16,
+    gap: 4,
   },
   postItem: {
-    margin: 4,
+    margin: 2,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: COLORS.light,
   },
   postImage: {
     width: '100%',
@@ -887,44 +816,52 @@ const styles = StyleSheet.create({
   },
   postOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    justifyContent: 'flex-end',
-    padding: 8,
-    opacity: 0,
-  },
-  postStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    bottom: 8,
+    right: 8,
   },
   postStat: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
   postStatText: {
-    fontSize: 12,
     color: COLORS.white,
-    marginLeft: 4,
+    fontSize: 12,
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     color: COLORS.textPrimary,
-    marginTop: 12,
+    marginTop: 16,
   },
-  emptyStateText: {
+  emptyText: {
     fontSize: 14,
-    color: COLORS.textMuted,
-    marginTop: 4,
-    textAlign: 'center',
+    color: COLORS.textTertiary,
+    marginTop: 8,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    marginTop: 20,
+    gap: 8,
+  },
+  emptyButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
@@ -934,87 +871,119 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.surfaceLight,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+  saveText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
   modalContent: {
-    padding: 16,
+    flex: 1,
+    padding: 20,
   },
-  editImageSection: {
+  editAvatarSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  editProfileImage: {
+  editAvatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    overflow: 'hidden',
-    position: 'relative',
   },
-  editProfileImageContent: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  editProfileImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: COLORS.primary,
+  editAvatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  editProfileImageText: {
+  editAvatarText: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: COLORS.white,
   },
-  editImageOverlay: {
+  editAvatarOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  editImageLabel: {
+  editAvatarLabel: {
+    marginTop: 12,
     fontSize: 14,
-    color: COLORS.textMuted,
-    marginTop: 8,
-  },
-  formContainer: {
-    marginBottom: 24,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   formField: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   formLabel: {
     fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textPrimary,
-    marginBottom: 4,
-    fontWeight: '500',
+    marginBottom: 8,
+  },
+  formInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   formInput: {
-    backgroundColor: COLORS.light,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    flex: 1,
+    paddingVertical: 14,
     fontSize: 16,
     color: COLORS.textPrimary,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
-  bioInput: {
-    height: 100,
+  formInputMultiline: {
+    minHeight: 80,
     textAlignVertical: 'top',
+  },
+  settingsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  settingsSheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  settingsHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 16,
+  },
+  settingsItemText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   uploadingOverlay: {
     position: 'absolute',
@@ -1022,14 +991,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   uploadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 16,
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
