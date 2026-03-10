@@ -46,6 +46,9 @@ const NOTIFICATION_CONFIG = {
   follow: { icon: 'person-add', color: '#10B981', text: 'started following you' },
   mention: { icon: 'at', color: '#F59E0B', text: 'mentioned you' },
   reply: { icon: 'return-down-forward', color: '#3B82F6', text: 'replied to your comment' },
+  reel_like: { icon: 'heart', color: '#F50057', text: 'liked your reel' },
+  reel_comment: { icon: 'chatbubble', color: '#6366F1', text: 'commented on your reel' },
+  story_view: { icon: 'eye', color: '#8B5CF6', text: 'viewed your story' },
 };
 
 export default function Notifications() {
@@ -110,7 +113,12 @@ export default function Notifications() {
       case 'comment':
         if (notification.postId) router.push(`/post/${notification.postId}`);
         break;
+      case 'reel_like':
+      case 'reel_comment':
+        if (notification.reelId) router.push('/reels');
+        break;
       case 'follow':
+      case 'story_view':
         if (notification.senderId) router.push(`/profile/${notification.senderId}`);
         break;
     }

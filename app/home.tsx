@@ -34,8 +34,10 @@ import {
   getDoc,
   onSnapshot,
   where,
+  limit,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { notifyPostLike, notifyComment, getPostOwnerId } from '../utils/notifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -97,7 +99,7 @@ export default function Home() {
   const fetchPosts = async () => {
     try {
       const postsRef = collection(db, 'posts');
-      const q = query(postsRef, orderBy('createdAt', 'desc'));
+      const q = query(postsRef, orderBy('createdAt', 'desc'), limit(100));
       
       onSnapshot(q, async (snapshot) => {
         const postsData = snapshot.docs.map(doc => ({
@@ -109,7 +111,33 @@ export default function Home() {
         const userIds = [...new Set(postsData.map(p => p.uid))];
         await Promise.all(userIds.map(fetchUserData));
         
-        setPosts(postsData);
+        // Get following list for better ranking
+        let followingIds = new Set();
+        if (currentUserId) {
+          const followingRef = collection(db, 'users', currentUserId, 'following');
+          const followingSnap = await getDocs(followingRef);
+          followingIds = new Set(followingSnap.docs.map(doc => doc.id));
+        }
+        
+        // Rank posts: following first, then by engagement and recency
+        const rankedPosts = postsData.sort((a, b) => {
+          const aFollowing = followingIds.has(a.uid) ? 100 : 0;
+          const bFollowing = followingIds.has(b.uid) ? 100 : 0;
+          
+          const aLikes = a.likes?.length || 0;
+          const bLikes = b.likes?.length || 0;
+          
+          const aTime = a.createdAt?.toMillis?.() || 0;
+          const bTime = b.createdAt?.toMillis?.() || 0;
+          
+          // Score = following bonus + likes + recency bonus
+          const aScore = aFollowing + aLikes + (aTime / 10000000);
+          const bScore = bFollowing + bLikes + (bTime / 10000000);
+          
+          return bScore - aScore;
+        });
+        
+        setPosts(rankedPosts);
         setLoading(false);
         setRefreshing(false);
       });
@@ -170,6 +198,14 @@ export default function Home() {
       await updateDoc(postRef, {
         likes: isLiked ? arrayRemove(currentUserId) : arrayUnion(currentUserId),
       });
+      
+      // Send notification only when liking (not unliking)
+      if (!isLiked) {
+        const postOwnerId = await getPostOwnerId(postId);
+        if (postOwnerId && postOwnerId !== currentUserId) {
+          await notifyPostLike(postOwnerId, currentUserId, postId);
+        }
+      }
     } catch (error) {
       console.error('Error toggling like:', error);
     }
@@ -212,6 +248,12 @@ export default function Home() {
         text: commentText.trim(),
         createdAt: serverTimestamp(),
       });
+      
+      // Send notification
+      const postOwnerId = await getPostOwnerId(currentPostId);
+      if (postOwnerId && postOwnerId !== currentUserId) {
+        await notifyComment(postOwnerId, currentUserId, currentPostId, commentText.trim());
+      }
       
       setCommentText('');
       openComments(currentPostId);

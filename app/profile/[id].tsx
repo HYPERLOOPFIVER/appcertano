@@ -27,6 +27,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
+import { notifyFollow } from '../../utils/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -148,6 +149,9 @@ export default function UserProfile() {
         });
         setIsFollowing(true);
         setFollowers(prev => [...prev, { id: currentUserId }]);
+        
+        // Send notification
+        await notifyFollow(targetUserId, currentUserId);
       }
     } catch (error) {
       console.error("Error toggling follow:", error);

@@ -1,4 +1,5 @@
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+// Notification helper functions - properly connected to all actions
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Notification types
@@ -8,18 +9,18 @@ export const NOTIFICATION_TYPES = {
   FOLLOW: 'follow',
   MENTION: 'mention',
   REPLY: 'reply',
+  STORY_VIEW: 'story_view',
+  REEL_LIKE: 'reel_like',
+  REEL_COMMENT: 'reel_comment',
 };
 
 /**
  * Create a notification for a user
- * @param {string} recipientId - The user who will receive the notification
- * @param {string} senderId - The user who triggered the notification
- * @param {string} type - The type of notification (like, comment, follow, etc.)
- * @param {object} data - Additional data (postId, text, etc.)
  */
 export const createNotification = async (recipientId, senderId, type, data = {}) => {
   // Don't create notification for own actions
   if (recipientId === senderId) return;
+  if (!recipientId || !senderId) return;
 
   try {
     await addDoc(collection(db, 'notifications'), {
@@ -30,16 +31,24 @@ export const createNotification = async (recipientId, senderId, type, data = {})
       read: false,
       createdAt: serverTimestamp(),
     });
+    console.log(`Notification created: ${type} from ${senderId} to ${recipientId}`);
   } catch (error) {
     console.error('Error creating notification:', error);
   }
 };
 
 /**
- * Create a like notification
+ * Create a like notification for posts
  */
-export const notifyLike = async (postOwnerId, likerId, postId) => {
+export const notifyPostLike = async (postOwnerId, likerId, postId) => {
   await createNotification(postOwnerId, likerId, NOTIFICATION_TYPES.LIKE, { postId });
+};
+
+/**
+ * Create a like notification for reels
+ */
+export const notifyReelLike = async (reelOwnerId, likerId, reelId) => {
+  await createNotification(reelOwnerId, likerId, NOTIFICATION_TYPES.REEL_LIKE, { reelId });
 };
 
 /**
@@ -48,6 +57,16 @@ export const notifyLike = async (postOwnerId, likerId, postId) => {
 export const notifyComment = async (postOwnerId, commenterId, postId, commentText) => {
   await createNotification(postOwnerId, commenterId, NOTIFICATION_TYPES.COMMENT, {
     postId,
+    text: commentText.substring(0, 100),
+  });
+};
+
+/**
+ * Create a reel comment notification
+ */
+export const notifyReelComment = async (reelOwnerId, commenterId, reelId, commentText) => {
+  await createNotification(reelOwnerId, commenterId, NOTIFICATION_TYPES.REEL_COMMENT, {
+    reelId,
     text: commentText.substring(0, 100),
   });
 };
@@ -67,4 +86,43 @@ export const notifyReply = async (commentOwnerId, replierId, postId, replyText) 
     postId,
     text: replyText.substring(0, 100),
   });
+};
+
+/**
+ * Create a story view notification
+ */
+export const notifyStoryView = async (storyOwnerId, viewerId) => {
+  await createNotification(storyOwnerId, viewerId, NOTIFICATION_TYPES.STORY_VIEW, {});
+};
+
+/**
+ * Get post owner ID from post ID
+ */
+export const getPostOwnerId = async (postId) => {
+  try {
+    const postDoc = await getDoc(doc(db, 'posts', postId));
+    if (postDoc.exists()) {
+      return postDoc.data().uid;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting post owner:', error);
+    return null;
+  }
+};
+
+/**
+ * Get reel owner ID from reel ID
+ */
+export const getReelOwnerId = async (reelId) => {
+  try {
+    const reelDoc = await getDoc(doc(db, 'reels', reelId));
+    if (reelDoc.exists()) {
+      return reelDoc.data().uid;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting reel owner:', error);
+    return null;
+  }
 };

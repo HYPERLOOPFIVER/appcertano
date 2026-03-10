@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { collection, getDocs, orderBy, query, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, getDoc, addDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
+import { notifyReelLike, notifyReelComment, getReelOwnerId } from '../utils/notifications';
 
 const screenHeight = Dimensions.get('window').height;
 
@@ -204,6 +205,14 @@ export default function Reels() {
             : reel
         )
       );
+      
+      // Send notification when liking
+      if (!isLiked) {
+        const reelOwnerId = await getReelOwnerId(reelId);
+        if (reelOwnerId && reelOwnerId !== userId) {
+          await notifyReelLike(reelOwnerId, userId, reelId);
+        }
+      }
     } catch (error) {
       console.error('Error toggling like:', error);
     }

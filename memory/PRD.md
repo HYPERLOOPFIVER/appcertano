@@ -1,12 +1,16 @@
 # Certano Social Media App - PRD
 
 ## Original Problem Statement
-User wanted to completely rebuild the UI for their Certano social media app with:
-- Attractive, modern UI on all pages
-- Cool animations throughout
-- Beautiful modals
-- All features working properly
-- Awesome UI experience
+Complete rebuild of Certano social media app with:
+- All features working properly and connected
+- Follow suggestions
+- Profile picture functionality
+- Reels with feed system
+- Notifications for likes and follows
+- Better posting system
+- Create reel system
+- Show posts liked by user in feed algorithm
+- God-level UI/UX
 
 ## Tech Stack
 - **Frontend**: React Native + Expo Router
@@ -16,79 +20,94 @@ User wanted to completely rebuild the UI for their Certano social media app with
 - **Animations**: Moti library
 - **UI**: Linear Gradients, Custom components
 
-## Design System (January 2026)
+## Design System
 ### Colors
 - Primary: #F50057 (Electric Pink)
 - Secondary: #6366F1 (Indigo)
 - Background: #FAFAFA
 - Surface: #FFFFFF
 
-### Features
-- Gradient buttons and avatars
-- Glassmorphic bottom navigation
-- Spring animations on interactions
-- Bottom sheet modals
-- Story rings with gradient borders
-
 ---
 
 ## What's Been Implemented (January 2026)
 
-### Complete UI Rebuild
-1. **Splash Screen** (`/app/index.tsx`)
-   - Animated logo with pulsing effect
-   - Gradient background with decorative circles
-   - Smooth entrance animations
-   - "Get Started" button with arrow animation
+### Complete Feature Set
 
-2. **Login Screen** (`/app/login.tsx`)
-   - Modern form design with floating labels
-   - Input focus animations
-   - Password visibility toggle
-   - Social login buttons (Google, Apple, Facebook)
-   - Gradient submit button
+#### 1. Authentication System
+- Beautiful login with animations
+- Signup with password strength indicator
+- Social login buttons (Google, Apple, Facebook UI)
+- Splash screen with pulsing logo
 
-3. **Signup Screen** (`/app/signup.tsx`)
-   - Password strength indicator
-   - Confirm password validation
-   - Terms checkbox with animation
-   - Smooth form field animations
+#### 2. Home Feed with Smart Algorithm
+- **Posts ranked by**: Following status + Likes + Recency
+- Stories carousel at top with gradient rings
+- Double-tap to like with heart animation
+- Pull to refresh
+- Comments modal (bottom sheet style)
+- **Notifications sent on**: Like, Comment
 
-4. **Home Feed** (`/app/home.tsx`)
-   - Stories carousel with gradient rings
-   - Double-tap to like with heart animation
-   - Floating bottom navigation
-   - Pull to refresh
-   - Comments modal (bottom sheet style)
+#### 3. Stories System (FULLY WORKING)
+- Create story with gallery/camera
+- Text overlay with position options (top/center/bottom)
+- Story viewer with progress bars
+- 24-hour auto-expiry
+- View count tracking
+- Reply to stories (sends to chat)
+- **Notifications sent on**: Story view
 
-5. **Profile Screen** (`/app/profile.tsx`)
-   - Cover image with gradient overlay
-   - Floating profile card
-   - Stats with staggered animations
-   - Settings bottom sheet modal
-   - Grid view for posts
+#### 4. Reels System (FULLY WORKING)
+- Create reel with video upload
+- Caption and hashtags support
+- Full-screen vertical player
+- Like, comment, share buttons
+- **Notifications sent on**: Reel like, Reel comment
 
-6. **Chats Screen** (`/app/chats.tsx`)
-   - Online status indicators
-   - Search bar with placeholder
-   - Chat items with slide-in animation
-   - Empty state with gradient icon
+#### 5. User Profiles
+- Cover photo + Profile picture
+- Edit profile modal with all fields
+- Stats (Posts, Followers, Following)
+- Posts grid view
+- Settings bottom sheet
+- Sign out functionality
 
-7. **Notifications Screen** (`/app/notifications.tsx`)
-   - Unread indicators with accent color
-   - Type-specific icons (like, comment, follow)
-   - Time formatting (relative)
-   - Pull to refresh
+#### 6. Follow System (FULLY CONNECTED)
+- Follow/Unfollow from any profile
+- **Follow suggestions on Discover page**
+- Followers/Following counts
+- **Notifications sent on**: Follow
 
-### Core Features
-- ✅ User Authentication (Firebase)
-- ✅ Real-time Messaging
-- ✅ Stories (24-hour)
-- ✅ Notifications System
-- ✅ AI Meme Generator (Gemini)
-- ✅ Image Upload (Cloudinary)
-- ✅ Follow/Unfollow System
-- ✅ Comments & Likes
+#### 7. Search & Discover
+- User search by name/email
+- **Follow suggestions carousel**
+- Explore grid (posts + reels mixed)
+- See all suggestions link
+
+#### 8. Messaging (FULLY WORKING)
+- Chat list with online indicators
+- Real-time messaging
+- Reply to stories goes to chat
+- User search to start new chat
+
+#### 9. Notifications (ALL TYPES)
+- Like notifications (post & reel)
+- Comment notifications (post & reel)
+- Follow notifications
+- Story view notifications
+- Unread indicators
+- Click to navigate to relevant content
+
+---
+
+## Notification Triggers
+| Action | Notification Sent To |
+|--------|---------------------|
+| Like a post | Post owner |
+| Comment on post | Post owner |
+| Like a reel | Reel owner |
+| Comment on reel | Reel owner |
+| Follow user | Followed user |
+| View story | Story owner |
 
 ---
 
@@ -96,38 +115,40 @@ User wanted to completely rebuild the UI for their Certano social media app with
 ```
 /app
 ├── app/
-│   ├── index.tsx           # Splash (NEW UI)
-│   ├── login.tsx           # Login (NEW UI)
-│   ├── signup.tsx          # Signup (NEW UI)
-│   ├── home.tsx            # Feed (NEW UI)
-│   ├── profile.tsx         # Profile (NEW UI)
+│   ├── index.tsx           # Splash
+│   ├── login.tsx           # Login
+│   ├── signup.tsx          # Signup
+│   ├── home.tsx            # Feed (SMART ALGORITHM)
+│   ├── profile.tsx         # My Profile
 │   ├── profile/[id].tsx    # User Profile
-│   ├── chats.tsx           # Chat List (NEW UI)
+│   ├── chats.tsx           # Chat List
 │   ├── chat/[id].tsx       # Conversation
-│   ├── notifications.tsx   # Notifications (NEW UI)
+│   ├── notifications.tsx   # All Notifications
+│   ├── search.tsx          # Discover + Follow Suggestions
+│   ├── reels.tsx           # Reels Feed
 │   ├── create-post.tsx     # Create Post
+│   ├── create-reel.tsx     # Create Reel (NEW)
 │   ├── create-story.tsx    # Create Story
-│   ├── story/[id].tsx      # Story Viewer
-│   ├── search.tsx          # Explore
-│   └── reels.tsx           # Reels
-├── constants/
-│   └── theme.js            # Design system constants
-├── components/
-│   └── ui/Button.js        # Reusable components
-└── utils/
-    └── notifications.js    # Helper functions
+│   └── story/[id].tsx      # Story Viewer
+├── utils/
+│   └── notifications.js    # Notification helpers (ALL TYPES)
+└── constants/
+    └── theme.js            # Design tokens
 ```
 
 ---
 
-## Next Tasks
-1. Test on physical device using Expo Go
-2. Add push notifications
-3. Implement saved posts
-4. Add story stickers/filters
+## How to Test
+```bash
+# Download code via "Save to Github" button
+# Then locally:
+npm install
+npx expo start
+# Scan QR with Expo Go app
+```
 
-## Backlog
-- Group chats
-- Story highlights
-- Post scheduling
-- Dark mode toggle
+## Next Tasks
+1. Push notifications (requires Expo config)
+2. Video thumbnails generation
+3. Story highlights
+4. Saved posts collection
